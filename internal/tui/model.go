@@ -2,6 +2,7 @@
 package tui
 
 import (
+	"fmt"
 	"github.com/AlverezYari/featherframe/internal/server"
 	"github.com/AlverezYari/featherframe/pkg/camera"
 	tea "github.com/charmbracelet/bubbletea"
@@ -68,6 +69,11 @@ type Model struct {
 // New returns a Model with initial state
 func New() Model {
 	now := time.Now()
+	s := server.New("8080")
+	err := s.Start()
+	if err != nil {
+		fmt.Printf("Error starting server: %v\n", err)
+	}
 	return Model{
 		status:           "Starting up...",
 		isRunning:        false,
@@ -75,7 +81,7 @@ func New() Model {
 		currentTime:      now,
 		activeTab:        cameraTab,
 		serverPort:       "8080",
-		server:           server.New("8080"),
+		server:           s,
 		cameraSetupStep:  stepNoCameraConfigured,
 		cameraConfigured: false,
 		cameraManager:    camera.NewDarwinManager(),

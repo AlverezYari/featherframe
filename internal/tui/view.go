@@ -178,7 +178,7 @@ func (m Model) renderCameraMainContent() string {
 	case stepTestCamera:
 		return styleBoxed.Render(
 			fmt.Sprintf("Testing Camera: %s\n\n"+
-				"• Preview available at: http://localhost:%s/camera-test\n"+
+				"• Preview available at: http://localhost:%s/setup-preview\n"+
 				"• Press Enter to continue witht he config if preview looks good\n"+
 				"• Press 'b' to go back to camera selection",
 				m.selectedCamera, m.server.Port()))

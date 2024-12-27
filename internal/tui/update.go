@@ -3,6 +3,7 @@ package tui
 
 import (
 	"fmt"
+	"github.com/AlverezYari/featherframe/pkg/camera"
 	tea "github.com/charmbracelet/bubbletea"
 	"time"
 )
@@ -40,6 +41,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				devices, err := m.cameraManager.ScanDevices()
 				if err != nil {
 					m.status = fmt.Sprintf("Error scanning for cameras: %v", err)
+					m.cameraMessages = append(m.cameraMessages, cameraMessage{
+						text:      fmt.Sprintf("Error scanning for cameras: %v", err),
+						timestamp: time.Now(),
+						isError:   true,
+					})
 					m.cameraSetupStep = stepNoCameraConfigured
 					return m, nil
 				}
@@ -87,17 +93,44 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				switch m.cameraSetupStep {
 				case stepSelectCamera:
 					if m.selectedCamera != "" {
+						config := camera.StreamConfig{
+							Width:     1920,
+							Height:    1080,
+							Framerate: 30,
+							Mode:      camera.ModeLiveMonitor,
+						}
+						if err := m.cameraManager.OpenCamera(m.selectedCamera, config); err != nil {
+							m.status = fmt.Sprintf("Error opening camera: %v", err)
+							return m, nil
+						}
+
 						m.cameraSetupStep = stepTestCamera
 						m.status = "Testing camera..."
 					}
+
 				case stepTestCamera:
 					if msg.String() == "enter" {
-						m.cameraSetupStep = stepComplete
+						m.cameraSetupStep = stepConfigureCamera
 						m.cameraConfigured = true
-						m.status = "Camera configured and active!"
+						m.status = "Configuring camera..."
+					} else {
+						if stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera); err == nil {
+							fmt.Println("Starting stream")
+							go func() {
+								for frame := range stream {
+									m.server.BroadcastFrame(frame)
+								}
+							}()
+						} else {
+							m.status = fmt.Sprintf("Error starting stream: %v", err)
+							m.cameraMessages = append(m.cameraMessages, cameraMessage{
+								text:      fmt.Sprintf("Error starting stream: %v", err),
+								timestamp: time.Now(),
+								isError:   true,
+							})
+						}
 					}
-					m.cameraSetupStep = stepConfigureCamera
-					m.status = "Configuring camera..."
+
 				case stepConfigureCamera:
 					m.cameraSetupStep = stepComplete
 					m.cameraConfigured = true

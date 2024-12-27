@@ -4,10 +4,13 @@ package server
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 type LogEntry struct {
@@ -20,18 +23,25 @@ type logWriter struct {
 }
 
 type Server struct {
-	server    *http.Server
-	port      string
-	isRunning bool
-	logger    *log.Logger
-	logBuffer []LogEntry
-	logMutex  sync.RWMutex
+	server          *http.Server
+	port            string
+	isRunning       bool
+	logger          *log.Logger
+	logBuffer       []LogEntry
+	logMutex        sync.RWMutex
+	upgrader        websocket.Upgrader
+	wsConnections   map[*websocket.Conn]bool
+	wsConnectionsMu sync.RWMutex
 }
 
 func New(port string) *Server {
 	s := &Server{
 		port:      port,
 		logBuffer: make([]LogEntry, 0, 100),
+		upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool { return true },
+		},
+		wsConnections: make(map[*websocket.Conn]bool),
 	}
 	s.logger = log.New(&logWriter{s}, "[WEBSERVER] ", log.LstdFlags)
 	return s
@@ -44,6 +54,12 @@ func (s *Server) Start() error {
 	}
 
 	mux := http.NewServeMux()
+	// Websocket route
+	mux.HandleFunc("/ws/camera", s.handleWebSocketCamera)
+
+	// Add static file serving
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
+
 	// Add logging middleware
 	loggingMux := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -63,6 +79,16 @@ func (s *Server) Start() error {
 
 	mux.HandleFunc("/monitor", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Bird Monitoring Interface")
+	})
+
+	mux.HandleFunc("/setup-preview", func(w http.ResponseWriter, r *http.Request) {
+		tmpl, err := template.ParseFiles("web/templates/setup-preview.html")
+		if err != nil {
+			s.logger.Printf("Error parsing template: %v", err)
+			http.Error(w, "Template error", http.StatusInternalServerError)
+			return
+		}
+		tmpl.Execute(w, nil)
 	})
 
 	s.server = &http.Server{
@@ -126,6 +152,50 @@ func (s *Server) SetPort(port string) error {
 	}
 	s.port = port
 	return nil
+}
+
+func (s *Server) handleWebSocketCamera(w http.ResponseWriter, r *http.Request) {
+	s.logger.Print("Websocket connection attempt from: %s", r.RemoteAddr)
+	conn, err := s.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		s.logger.Printf("Error upgrading websocket connection: %v", err)
+		return
+	}
+
+	s.logger.Printf("Websocket connection established from: %s", r.RemoteAddr)
+
+	s.wsConnectionsMu.Lock()
+	s.wsConnections[conn] = true
+	s.wsConnectionsMu.Unlock()
+
+	defer func() {
+		conn.Close()
+		s.wsConnectionsMu.Lock()
+		delete(s.wsConnections, conn)
+		s.wsConnectionsMu.Unlock()
+		conn.Close()
+	}()
+
+	for {
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			s.logger.Printf("Error reading message from websocket: %v", err)
+			break
+		}
+	}
+}
+
+func (s *Server) BroadcastFrame(frameBytes []byte) {
+	s.wsConnectionsMu.Lock()
+	defer s.wsConnectionsMu.Unlock()
+	for conn := range s.wsConnections {
+		err := conn.WriteMessage(websocket.BinaryMessage, frameBytes)
+		if err != nil {
+			s.logger.Printf("Error writing message to websocket: %v", err)
+			conn.Close()
+			delete(s.wsConnections, conn)
+		}
+	}
 }
 
 // Logging middleware support functions

@@ -3,6 +3,7 @@ package camera
 import (
 	"fmt"
 	"gocv.io/x/gocv"
+	"time"
 )
 
 type DarwinCameraManager struct {
@@ -48,7 +49,7 @@ func (d *DarwinCameraManager) ScanDevices() ([]Device, error) {
 	return devices, nil
 }
 
-func (d *DarwinCameraManager) OpenCamera(deviceID string) error {
+func (d *DarwinCameraManager) OpenCamera(deviceID string, config StreamConfig) error {
 	// If already open, return
 	if _, exists := d.openDevices[deviceID]; exists {
 		return nil
@@ -59,6 +60,11 @@ func (d *DarwinCameraManager) OpenCamera(deviceID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open camera %s: %v", deviceID, err)
 	}
+
+	// Apply configuration
+	cap.Set(gocv.VideoCaptureFrameWidth, float64(config.Width))
+	cap.Set(gocv.VideoCaptureFrameHeight, float64(config.Height))
+	cap.Set(gocv.VideoCaptureFPS, float64(config.Framerate))
 
 	d.openDevices[deviceID] = cap
 	return nil
@@ -95,4 +101,60 @@ func (d *DarwinCameraManager) GetFrame(deviceID string) ([]byte, error) {
 
 	return buf.GetBytes(), nil
 
+}
+
+func (d *DarwinCameraManager) SetMode(deviceID string, mode CameraMode) error {
+	// TODO: Implement actual mode switching logic
+	return nil
+}
+
+func (d *DarwinCameraManager) GetMode(deviceID string) (CameraMode, error) {
+	// TODO: Implement actual mode checking logic
+	return ModeOff, nil
+}
+
+func (d *DarwinCameraManager) StartStream(deviceID string) error {
+	// TODO: Implement actual stream starting logic
+	return nil
+}
+
+func (d *DarwinCameraManager) StopStream(deviceID string) error {
+	// TODO: Implement actual stream stopping logic
+	return nil
+}
+
+func (d *DarwinCameraManager) IsStreaming(deviceID string) bool {
+	// TODO: Implement actual streaming status check
+	return false
+}
+
+func (d *DarwinCameraManager) GetStreamChannel(deviceID string) (<-chan []byte, error) {
+	cap, exists := d.openDevices[deviceID]
+	if !exists {
+		return nil, fmt.Errorf("camera %s is not open", deviceID)
+	}
+
+	frameChan := make(chan []byte)
+	go func() {
+		defer close(frameChan)
+
+		img := gocv.NewMat()
+		defer img.Close()
+
+		for {
+			if ok := cap.Read(&img); !ok {
+				return
+			}
+
+			// Convert to JPG for streaming
+			buf, err := gocv.IMEncode(".jpg", img)
+			if err != nil {
+				continue
+			}
+
+			frameChan <- buf.GetBytes()
+			time.Sleep(time.Second / 30) // 30 FPS
+		}
+	}()
+	return frameChan, nil
 }

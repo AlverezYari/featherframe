@@ -33,6 +33,87 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeTab = uploadTab
 		case "5":
 			m.activeTab = serverTab
+		case "c":
+			if m.activeTab == cameraTab && m.cameraSetupStep == stepNoCameraConfigured {
+				m.cameraSetupStep = stepScanningForCameras
+				m.status = "Scanning for cameras..."
+				devices, err := m.cameraManager.ScanDevices()
+				if err != nil {
+					m.status = fmt.Sprintf("Error scanning for cameras: %v", err)
+					m.cameraSetupStep = stepNoCameraConfigured
+					return m, nil
+				}
+				m.availableCameras = make([]string, len(devices))
+				for i, device := range devices {
+					m.availableCameras[i] = device.Name
+				}
+
+				if len(m.availableCameras) > 0 {
+					m.cameraSetupStep = stepSelectCamera
+					m.status = "Select a camera to configure"
+				} else {
+					m.status = "No cameras found"
+					m.cameraSetupStep = stepNoCameraConfigured
+				}
+			}
+
+		case "up", "down":
+			if m.activeTab == cameraTab && m.cameraSetupStep == stepSelectCamera && len(m.availableCameras) > 0 {
+				currentIndex := -1
+				for i, camera := range m.availableCameras {
+					if camera == m.selectedCamera {
+						currentIndex = i
+						break
+					}
+				}
+				if msg.String() == "up" {
+					if currentIndex <= 0 {
+						currentIndex = len(m.availableCameras) - 1
+					} else {
+						currentIndex--
+					}
+				} else {
+					if currentIndex >= len(m.availableCameras)-1 {
+						currentIndex = 0
+					} else {
+						currentIndex++
+					}
+				}
+				m.selectedCamera = m.availableCameras[currentIndex]
+			}
+
+		case "enter":
+			if m.activeTab == cameraTab {
+				switch m.cameraSetupStep {
+				case stepSelectCamera:
+					if m.selectedCamera != "" {
+						m.cameraSetupStep = stepTestCamera
+						m.status = "Testing camera..."
+					}
+				case stepTestCamera:
+					if msg.String() == "enter" {
+						m.cameraSetupStep = stepComplete
+						m.cameraConfigured = true
+						m.status = "Camera configured and active!"
+					}
+					m.cameraSetupStep = stepConfigureCamera
+					m.status = "Configuring camera..."
+				case stepConfigureCamera:
+					m.cameraSetupStep = stepComplete
+					m.cameraConfigured = true
+					m.status = "Camera configured!"
+				}
+			}
+		case "b", "backspace", "esc":
+			if m.activeTab == cameraTab {
+				switch m.cameraSetupStep {
+				case stepSelectCamera:
+					m.cameraSetupStep = stepNoCameraConfigured
+				case stepConfigureCamera:
+					m.cameraSetupStep = stepTestCamera
+				}
+			}
+
 		case "s":
 			if m.activeTab == serverTab {
 				if m.server.IsRunning() {
@@ -54,6 +135,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// TODO: Implement changing server port
 			}
 
+		case "r":
+			// Reset camera setup
+			if m.activeTab == cameraTab && m.cameraConfigured {
+				// Reset camera setup
+				m.cameraSetupStep = stepNoCameraConfigured
+				m.selectedCamera = ""
+				m.availableCameras = make([]string, 0)
+				m.cameraConfigured = false
+				m.status = "!! Camera setup reset !!"
+			}
 		case "tab":
 			// Cycle through tabs
 			m.activeTab = (m.activeTab + 1) % tabType(len(m.tabs))

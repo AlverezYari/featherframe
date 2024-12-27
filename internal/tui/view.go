@@ -87,10 +87,7 @@ func (m Model) renderTabs() string {
 func (m Model) renderActiveTabContent() string {
 	switch m.activeTab {
 	case cameraTab:
-		return "Camera Status:\n" +
-			"• Resolution: 1080p\n" +
-			"• FPS: 30\n" +
-			"• Mode: Preview"
+		return m.renderCameraContent()
 	case motionTab:
 		return "Motion Detection:\n" +
 			"• Status: Active\n" +
@@ -133,3 +130,110 @@ func (m Model) renderActiveTabContent() string {
 	}
 	return ""
 }
+
+// CHANGED: Update camera tab content
+func (m Model) renderCameraMainContent() string {
+	// if we have a configured camera show that first!
+	if m.cameraConfigured {
+		return styleBoxed.Render(
+			fmt.Sprintf(
+				"Camera Status: Active\n"+
+					"Device: %s\n"+
+					"Resolution: 1080p\n"+
+					"FPS: 30\n"+
+					"Preview: http://localhost:%s/camera\n"+
+					"Press 'r' to remove the camera configuration",
+				m.selectedCamera,
+				m.server.Port()))
+	}
+	switch m.cameraSetupStep {
+	case stepNoCameraConfigured:
+		return styleBoxed.Render(
+			"No Camera Configured\n\n" +
+				"Press 'c' to start camera setup wizard\n" +
+				"This will:\n" +
+				"• Scan for available cameras\n" +
+				"• Help you select and test a camera\n" +
+				"• Configure camera settings")
+
+	case stepScanningForCameras:
+		return "Scanning for cameras...\n" +
+			"This may take a few moments..."
+
+	case stepSelectCamera:
+		var content strings.Builder
+		content.WriteString("Available Cameras:\n\n")
+
+		for i, camera := range m.availableCameras {
+			prefix := "  "
+			if camera == m.selectedCamera {
+				prefix = "→ "
+			}
+			content.WriteString(fmt.Sprintf("%s%d: %s\n", prefix, i+1, camera))
+		}
+
+		content.WriteString("\nUse ↑/↓ to select, Enter to confirm")
+		return content.String()
+
+	case stepTestCamera:
+		return styleBoxed.Render(
+			fmt.Sprintf("Testing Camera: %s\n\n"+
+				"• Preview available at: http://localhost:%s/camera-test\n"+
+				"• Press Enter to continue witht he config if preview looks good\n"+
+				"• Press 'b' to go back to camera selection",
+				m.selectedCamera, m.server.Port()))
+
+	case stepConfigureCamera:
+		return "Applying configuration.."
+
+	case stepComplete:
+		return fmt.Sprintf(
+			"Camera Status: Active\n"+
+				"Device: %s\n"+
+				"Resolution: 1080p\n"+
+				"FPS: 30\n"+
+				"Preview: http://localhost:%s/camera"+
+				"Press 'r' to remove the camera configuration",
+			m.selectedCamera,
+			m.server.Port())
+	}
+
+	return ""
+}
+
+func (m Model) renderCameraContent() string {
+	// Get the main content from our renamed function
+	mainContent := m.renderCameraMainContent()
+
+	// Add the message log area
+	var logContent strings.Builder
+	logContent.WriteString("\n\nCamera Log:\n")
+	logContent.WriteString("───────────\n")
+
+	for _, msg := range m.cameraMessages {
+		style := styleNormalMsg
+		if msg.isError {
+			style = styleErrorMsg
+		}
+
+		logContent.WriteString(fmt.Sprintf("%s %s\n",
+			msg.timestamp.Format("15:04:05"),
+			style.Render(msg.text)))
+	}
+
+	return mainContent + logContent.String()
+}
+
+// Added some styling for our camera tab, logging and content
+var styleBoxed = lipgloss.NewStyle().
+	Border(lipgloss.RoundedBorder()).
+	Padding(1).
+	BorderForeground(lipgloss.Color("62"))
+
+var (
+	styleNormalMsg = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241"))
+
+	styleErrorMsg = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("red"))
+)

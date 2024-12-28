@@ -102,12 +102,20 @@ func (m Model) Init() tea.Cmd {
 }
 
 // Update handles messages
-func (m *Model) addCameraMessage(text string, isError bool) {
-	m.cameraMessages = append(m.cameraMessages, cameraMessage{
-		text:      text,
-		timestamp: time.Now(),
+func (m *Model) addCameraMessage(msg string, isError bool) {
+	now := time.Now()
+	if isError {
+		m.status = "Error: " + msg
+	}
+
+	// Create a cameraMessage struct instead of a string
+	message := cameraMessage{
+		text:      msg,
+		timestamp: now,
 		isError:   isError,
-	})
+	}
+
+	m.cameraMessages = append(m.cameraMessages, message)
 	if len(m.cameraMessages) > 10 {
 		m.cameraMessages = m.cameraMessages[1:]
 	}

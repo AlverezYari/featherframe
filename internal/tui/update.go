@@ -94,16 +94,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case stepSelectCamera:
 					if m.selectedCamera != "" {
 						config := camera.StreamConfig{
-							Width:     1920,
-							Height:    1080,
+							Width:     1280,
+							Height:    720,
 							Framerate: 30,
 							Mode:      camera.ModeLiveMonitor,
 						}
+
 						if err := m.cameraManager.OpenCamera(m.selectedCamera, config); err != nil {
-							m.status = fmt.Sprintf("Error opening camera: %v", err)
+							m.addCameraMessage(fmt.Sprintf("Error opening camera: %v", err), true)
 							return m, nil
 						}
-
+						m.addCameraMessage("Camera openned successfully!", false)
 						m.cameraSetupStep = stepTestCamera
 						m.status = "Testing camera..."
 					}
@@ -114,14 +115,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.cameraConfigured = true
 						m.status = "Configuring camera..."
 					} else {
+						fmt.Println("Attempting to start stream")
 						if stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera); err == nil {
-							fmt.Println("Starting stream")
+							fmt.Println("Got stream starting broadcast")
 							go func() {
 								for frame := range stream {
 									m.server.BroadcastFrame(frame)
 								}
 							}()
 						} else {
+							fmt.Println("Error starting stream")
 							m.status = fmt.Sprintf("Error starting stream: %v", err)
 							m.cameraMessages = append(m.cameraMessages, cameraMessage{
 								text:      fmt.Sprintf("Error starting stream: %v", err),

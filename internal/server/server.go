@@ -186,6 +186,8 @@ func (s *Server) handleWebSocketCamera(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) BroadcastFrame(frameBytes []byte) {
+	fmt.Println("Broadcasting frame")
+	s.logger.Printf("Broadcasting frame of size: %d bytes", len(frameBytes))
 	s.wsConnectionsMu.Lock()
 	defer s.wsConnectionsMu.Unlock()
 	for conn := range s.wsConnections {

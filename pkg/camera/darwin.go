@@ -3,7 +3,7 @@ package camera
 import (
 	"fmt"
 	"gocv.io/x/gocv"
-	"time"
+	"strconv"
 )
 
 type DarwinCameraManager struct {
@@ -56,9 +56,25 @@ func (d *DarwinCameraManager) OpenCamera(deviceID string, config StreamConfig) e
 	}
 
 	// Open the camera using gocv
-	cap, err := gocv.OpenVideoCapture(deviceID)
+	var cameraIndex int
+	if deviceID == "Built-in Camera" {
+		cameraIndex = 0
+	} else {
+		var err error
+		cameraIndex, err = strconv.Atoi(deviceID)
+		if err != nil {
+			return fmt.Errorf("invalid device ID: %s", deviceID)
+		}
+	}
+
+	cap, err := gocv.OpenVideoCapture(cameraIndex)
 	if err != nil {
-		return fmt.Errorf("failed to open camera %s: %v", deviceID, err)
+		return fmt.Errorf("error opening camera %s: %v", deviceID, err)
+	}
+
+	if !cap.IsOpened() {
+		cap.Close()
+		return fmt.Errorf("camera %s is not open", deviceID)
 	}
 
 	// Apply configuration
@@ -129,8 +145,10 @@ func (d *DarwinCameraManager) IsStreaming(deviceID string) bool {
 }
 
 func (d *DarwinCameraManager) GetStreamChannel(deviceID string) (<-chan []byte, error) {
+	fmt.Println("GetStreamChannel called for device:", deviceID)
 	cap, exists := d.openDevices[deviceID]
 	if !exists {
+		fmt.Println("Camera not found in openDevices map")
 		return nil, fmt.Errorf("camera %s is not open", deviceID)
 	}
 
@@ -141,19 +159,23 @@ func (d *DarwinCameraManager) GetStreamChannel(deviceID string) (<-chan []byte, 
 		img := gocv.NewMat()
 		defer img.Close()
 
+		fmt.Println("Starting frame capture loop")
 		for {
 			if ok := cap.Read(&img); !ok {
+				fmt.Println("Failed to read frame")
 				return
 			}
 
 			// Convert to JPG for streaming
 			buf, err := gocv.IMEncode(".jpg", img)
 			if err != nil {
+				fmt.Println("Failed to encode frame:", err)
 				continue
 			}
 
 			frameChan <- buf.GetBytes()
-			time.Sleep(time.Second / 30) // 30 FPS
+			fmt.Println("Sent frame to channel")
+
 		}
 	}()
 	return frameChan, nil

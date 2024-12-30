@@ -3,8 +3,10 @@ package tui
 
 import (
 	"fmt"
+	"github.com/AlverezYari/featherframe/internal/config"
 	"github.com/AlverezYari/featherframe/pkg/camera"
 	tea "github.com/charmbracelet/bubbletea"
+	"strings"
 	"time"
 )
 
@@ -13,8 +15,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	// Handle various message types
 	case tea.WindowSizeMsg:
+		// Root Component size
 		m.width = msg.Width
 		m.height = msg.Height
+		// logging view
+		m.logViewport.Width = msg.Width
+		m.logViewport.Height = 10 // Set to 10 lines for logs
+		m.logViewport.SetContent(strings.Join(m.logs, "\n"))
 
 	case tickMsg:
 		m.currentTime = time.Time(msg)
@@ -23,6 +30,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
+			// Save the configuration
+			config.Save(&m.config)
+			// Quit the program
 			return m, tea.Quit
 		case "1":
 			m.activeTab = cameraTab
@@ -51,10 +61,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.availableCameras = make([]string, len(devices))
 				for i, device := range devices {
-					m.availableCameras[i] = device.Name
+					m.availableCameras[i] = device.ID
 				}
 
 				if len(m.availableCameras) > 0 {
+					m.selectedCamera = m.availableCameras[0]
 					m.cameraSetupStep = stepSelectCamera
 					m.status = "Select a camera to configure"
 				} else {
@@ -90,54 +101,74 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "enter":
 			if m.activeTab == cameraTab {
+				m.addCameraMessage(fmt.Sprintf("Enter pressed, current step: %v", m.cameraSetupStep), false)
 				switch m.cameraSetupStep {
 				case stepSelectCamera:
 					if m.selectedCamera != "" {
-						config := camera.StreamConfig{
-							Width:     1280,
-							Height:    720,
-							Framerate: 30,
-							Mode:      camera.ModeLiveMonitor,
-						}
+						m.addCameraMessage(fmt.Sprintf("Current Step before transition: %v", m.cameraSetupStep), false)
 
-						if err := m.cameraManager.OpenCamera(m.selectedCamera, config); err != nil {
-							m.addCameraMessage(fmt.Sprintf("Error opening camera: %v", err), true)
-							return m, nil
-						}
-						m.addCameraMessage("Camera openned successfully!", false)
 						m.cameraSetupStep = stepTestCamera
+						m.addCameraMessage(fmt.Sprintf("Next Step after transition: %v", m.cameraSetupStep), false)
 						m.status = "Testing camera..."
-					}
+						m.addCameraMessage("Starting camera test", false)
+						// Open the selected camera and start streaming
+						err := m.cameraManager.OpenCamera(m.selectedCamera, camera.StreamConfig{
+							Width:     640,
+							Height:    480,
+							Framerate: 30,
+						})
+						if err != nil {
+							m.addCameraMessage(fmt.Sprintf("Failed to open camera: %v", err), true)
+						}
 
-				case stepTestCamera:
-					if msg.String() == "enter" {
-						m.cameraSetupStep = stepConfigureCamera
-						m.cameraConfigured = true
-						m.status = "Configuring camera..."
-					} else {
-						fmt.Println("Attempting to start stream")
-						if stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera); err == nil {
-							fmt.Println("Got stream starting broadcast")
+						stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera)
+						if err == nil {
+							m.addCameraMessage("Starting camera stream", false)
 							go func() {
+								m.addCameraMessage("Got stream successfully", false)
 								for frame := range stream {
 									m.server.BroadcastFrame(frame)
 								}
+								m.addCameraMessage("Camera stream ended", false)
 							}()
 						} else {
-							fmt.Println("Error starting stream")
-							m.status = fmt.Sprintf("Error starting stream: %v", err)
-							m.cameraMessages = append(m.cameraMessages, cameraMessage{
-								text:      fmt.Sprintf("Error starting stream: %v", err),
-								timestamp: time.Now(),
-								isError:   true,
-							})
+							m.addCameraMessage(fmt.Sprintf("Failed to start stream: %v", err), true)
+
 						}
 					}
 
+				case stepTestCamera:
+					m.addCameraMessage("In test step, starting stream", false)
+					// Start streaming immediately when we enter test step
+					stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera)
+					if err == nil { // Changed condition, start stream on success
+						m.addCameraMessage("Starting camera stream", false)
+						go func() {
+							for frame := range stream {
+								m.server.BroadcastFrame(frame)
+							}
+							m.addCameraMessage("Camera stream ended", false)
+						}()
+					} else {
+						m.addCameraMessage(fmt.Sprintf("Failed to start stream: %v", err), true)
+					}
+
+					// Handle enter press to move to next step
+					if msg.String() == "enter" {
+						m.cameraSetupStep = stepComplete
+						m.status = "Configuring camera..."
+						return m, nil
+					}
+
 				case stepConfigureCamera:
-					m.cameraSetupStep = stepComplete
 					m.cameraConfigured = true
+					m.cameraSetupStep = stepComplete
 					m.status = "Camera configured!"
+					return m, nil
+
+				case stepComplete:
+					return m, nil
+
 				}
 			}
 		case "b", "backspace", "esc":

@@ -3,16 +3,20 @@ package camera
 import (
 	"fmt"
 	"gocv.io/x/gocv"
+	"log"
+	"os"
 	"strconv"
 )
 
 type DarwinCameraManager struct {
 	openDevices map[string]*gocv.VideoCapture
+	logger      *log.Logger
 }
 
 func NewDarwinManager() *DarwinCameraManager {
 	return &DarwinCameraManager{
 		openDevices: make(map[string]*gocv.VideoCapture),
+		logger:      log.New(os.Stdout, "[CAMERA] ", log.LstdFlags),
 	}
 }
 
@@ -57,14 +61,9 @@ func (d *DarwinCameraManager) OpenCamera(deviceID string, config StreamConfig) e
 
 	// Open the camera using gocv
 	var cameraIndex int
-	if deviceID == "Built-in Camera" {
-		cameraIndex = 0
-	} else {
-		var err error
-		cameraIndex, err = strconv.Atoi(deviceID)
-		if err != nil {
-			return fmt.Errorf("invalid device ID: %s", deviceID)
-		}
+	cameraIndex, err := strconv.Atoi(deviceID)
+	if err != nil {
+		return fmt.Errorf("invalid device ID: %s", deviceID)
 	}
 
 	cap, err := gocv.OpenVideoCapture(cameraIndex)
@@ -81,8 +80,10 @@ func (d *DarwinCameraManager) OpenCamera(deviceID string, config StreamConfig) e
 	cap.Set(gocv.VideoCaptureFrameWidth, float64(config.Width))
 	cap.Set(gocv.VideoCaptureFrameHeight, float64(config.Height))
 	cap.Set(gocv.VideoCaptureFPS, float64(config.Framerate))
-
+	fmt.Printf("About to store camera with ID: %s\n", deviceID)
 	d.openDevices[deviceID] = cap
+	fmt.Printf("Stored camera. Current open devices: %v\n", d.openDevices)
+
 	return nil
 }
 
@@ -145,10 +146,9 @@ func (d *DarwinCameraManager) IsStreaming(deviceID string) bool {
 }
 
 func (d *DarwinCameraManager) GetStreamChannel(deviceID string) (<-chan []byte, error) {
-	fmt.Println("GetStreamChannel called for device:", deviceID)
+	d.logger.Printf("Starting stream for camera %s", deviceID)
 	cap, exists := d.openDevices[deviceID]
 	if !exists {
-		fmt.Println("Camera not found in openDevices map")
 		return nil, fmt.Errorf("camera %s is not open", deviceID)
 	}
 
@@ -174,7 +174,6 @@ func (d *DarwinCameraManager) GetStreamChannel(deviceID string) (<-chan []byte, 
 			}
 
 			frameChan <- buf.GetBytes()
-			fmt.Println("Sent frame to channel")
 
 		}
 	}()

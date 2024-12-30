@@ -55,6 +55,8 @@ func (m Model) View() string {
 
 	// Main content from active tab
 	mainContent := mainContentStyle.Render(m.renderActiveTabContent())
+	// Logs content
+	logs := m.logViewport.View()
 
 	// Status bar
 	statusBar := statusBarStyle.Width(m.width).Render(
@@ -62,7 +64,7 @@ func (m Model) View() string {
 	)
 
 	// Combine all sections
-	return fmt.Sprintf("%s\n%s\n%s\n%s", header, tabs, mainContent, statusBar)
+	return fmt.Sprintf("%s\n%s\n%s\n%s", header, tabs, mainContent, logs, statusBar)
 }
 
 // Helper function to render tabs
@@ -184,7 +186,7 @@ func (m Model) renderCameraMainContent() string {
 				m.selectedCamera, m.server.Port()))
 
 	case stepConfigureCamera:
-		return "Applying configuration.."
+		return "Applying camera configuration..."
 
 	case stepComplete:
 		return fmt.Sprintf(

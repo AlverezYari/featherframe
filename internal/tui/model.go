@@ -3,8 +3,10 @@ package tui
 
 import (
 	"fmt"
+	"github.com/AlverezYari/featherframe/internal/config"
 	"github.com/AlverezYari/featherframe/internal/server"
 	"github.com/AlverezYari/featherframe/pkg/camera"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"time"
 )
@@ -47,6 +49,8 @@ type tickMsg time.Time
 
 // Model holds our application state
 type Model struct {
+	configPath       string
+	config           config.AppConfig
 	width            int
 	height           int
 	status           string
@@ -64,17 +68,29 @@ type Model struct {
 	cameraMessages   []cameraMessage
 	availableCameras []string
 	selectedCamera   string
+	logViewport      viewport.Model
+	logs             []string // Log messages
 }
 
 // New returns a Model with initial state
-func New() Model {
+func New(configPath string, config *config.AppConfig) Model {
+
 	now := time.Now()
 	s := server.New("8080")
 	err := s.Start()
 	if err != nil {
 		fmt.Printf("Error starting server: %v\n", err)
 	}
+	// Init our viewports
+	// logging
+	logViewport := viewport.New(0, 10)
+	logViewport.MouseWheelEnabled = true
+	logViewport.YPosition = 0
+	// others..
+
 	return Model{
+		configPath:       configPath,
+		config:           *config,
 		status:           "Starting up...",
 		isRunning:        false,
 		startTime:        now,
@@ -93,6 +109,8 @@ func New() Model {
 			{title: "Upload", id: uploadTab},
 			{title: "Server", id: serverTab},
 		},
+		logViewport: logViewport,
+		logs:        make([]string, 0),
 	}
 }
 

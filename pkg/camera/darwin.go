@@ -1,11 +1,15 @@
 package camera
 
 import (
+	"bytes"
 	"fmt"
 	"gocv.io/x/gocv"
 	"log"
 	"os"
+	"os/exec"
+	"regexp"
 	"strconv"
+	"strings"
 )
 
 type DarwinCameraManager struct {
@@ -21,36 +25,75 @@ func NewDarwinManager() *DarwinCameraManager {
 }
 
 func (d *DarwinCameraManager) ScanDevices() ([]Device, error) {
-	// On macOS, try to open cameras sequentially to find available ones
-	var devices []Device
+	// Call ListVideoDevices to get device names
+	names, err := ListVideoDevices()
+	if err != nil {
+		return nil, err
+	}
 
-	// Usually, camera 0 is the built-in webcam
-	cap, err := gocv.OpenVideoCapture(0)
-	if err == nil {
-		cap.Close()
+	// Convert device names into Device objects
+	devices := []Device{}
+	for i, name := range names {
 		devices = append(devices, Device{
-			ID:          "0",
-			Name:        "Built-in Camera",
+			ID:          fmt.Sprintf("%d", i),
+			Name:        name,
 			IsAvailable: true,
 			DeviceType:  USBCamera,
 		})
 	}
 
-	// Check for additional cameras (up to 5)
-	for i := 1; i < 5; i++ {
-		cap, err := gocv.OpenVideoCapture(i)
-		if err == nil {
-			cap.Close()
-			devices = append(devices, Device{
-				ID:          fmt.Sprintf("%d", i),
-				Name:        fmt.Sprintf("Camera %d", i),
-				IsAvailable: true,
-				DeviceType:  USBCamera,
-			})
+	return devices, nil
+}
+
+// ListVideoDevices retrieves up to a maximum of 10 video device names using ffmpeg.
+
+func ListVideoDevices() ([]string, error) {
+	// Buffer to capture FFmpeg's stderr output
+	var stderr bytes.Buffer
+
+	// Run FFmpeg command to list devices
+	cmd := exec.Command("ffmpeg", "-f", "avfoundation", "-list_devices", "true", "-i", "")
+	cmd.Stderr = &stderr // Capture stderr internally
+
+	// Run the command
+	err := cmd.Run()
+
+	// Capture FFmpeg output for parsing
+	output := stderr.String()
+
+	// If the command failed, check if it produced valid output
+	if err != nil {
+		// Check if the output contains the device list section
+		if strings.Contains(output, "AVFoundation video devices:") {
+			// Non-critical error; continue parsing
+		} else {
+			// Critical error; return it
+			return nil, fmt.Errorf("error running ffmpeg command: %w", err)
 		}
 	}
 
-	return devices, nil
+	// Parse the output for video devices
+	videoDevices := []string{}
+	re := regexp.MustCompile(`(?m)^\[AVFoundation indev .*?\] \[(\d+)\] (.+)$`)
+	inVideoSection := false
+	for _, line := range strings.Split(output, "\n") {
+		if strings.Contains(line, "AVFoundation video devices:") {
+			inVideoSection = true
+			continue
+		}
+		if strings.Contains(line, "AVFoundation audio devices:") {
+			break
+		}
+
+		if inVideoSection {
+			match := re.FindStringSubmatch(line)
+			if len(match) > 2 {
+				videoDevices = append(videoDevices, match[2])
+			}
+		}
+	}
+
+	return videoDevices, nil
 }
 
 func (d *DarwinCameraManager) OpenCamera(deviceID string, config StreamConfig) error {
@@ -78,8 +121,11 @@ func (d *DarwinCameraManager) OpenCamera(deviceID string, config StreamConfig) e
 
 	// Apply configuration
 	cap.Set(gocv.VideoCaptureFrameWidth, float64(config.Width))
+
 	cap.Set(gocv.VideoCaptureFrameHeight, float64(config.Height))
+
 	cap.Set(gocv.VideoCaptureFPS, float64(config.Framerate))
+
 	fmt.Printf("About to store camera with ID: %s\n", deviceID)
 	d.openDevices[deviceID] = cap
 	fmt.Printf("Stored camera. Current open devices: %v\n", d.openDevices)
@@ -161,6 +207,10 @@ func (d *DarwinCameraManager) GetStreamChannel(deviceID string) (<-chan []byte, 
 
 		fmt.Println("Starting frame capture loop")
 		for {
+			if !cap.IsOpened() {
+				d.logger.Printf("Camera %s closed unexpectedly", deviceID)
+				return
+			}
 			if ok := cap.Read(&img); !ok {
 				fmt.Println("Failed to read frame")
 				return

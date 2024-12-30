@@ -66,8 +66,8 @@ type Model struct {
 	cameraConfigured bool
 	cameraManager    camera.CameraManager
 	cameraMessages   []cameraMessage
-	availableCameras []string
-	selectedCamera   string
+	availableCameras []camera.Device
+	selectedCamera   camera.Device
 	logViewport      viewport.Model
 	logs             []string // Log messages
 }
@@ -101,7 +101,7 @@ func New(configPath string, config *config.AppConfig) Model {
 		cameraSetupStep:  stepNoCameraConfigured,
 		cameraConfigured: false,
 		cameraManager:    camera.NewDarwinManager(),
-		availableCameras: make([]string, 0),
+		availableCameras: make([]camera.Device, 0),
 		tabs: []tab{
 			{title: "Camera", id: cameraTab},
 			{title: "Motion", id: motionTab},

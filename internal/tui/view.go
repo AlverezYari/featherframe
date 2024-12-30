@@ -171,7 +171,7 @@ func (m Model) renderCameraMainContent() string {
 			if camera == m.selectedCamera {
 				prefix = "→ "
 			}
-			content.WriteString(fmt.Sprintf("%s%d: %s\n", prefix, i+1, camera))
+			content.WriteString(fmt.Sprintf("%s%d: %s (%s)\n", prefix, i+1, camera.Name, camera.ID))
 		}
 
 		content.WriteString("\nUse ↑/↓ to select, Enter to confirm")
@@ -183,7 +183,7 @@ func (m Model) renderCameraMainContent() string {
 				"• Preview available at: http://localhost:%s/setup-preview\n"+
 				"• Press Enter to continue witht he config if preview looks good\n"+
 				"• Press 'b' to go back to camera selection",
-				m.selectedCamera, m.server.Port()))
+				m.selectedCamera.Name, m.server.Port()))
 
 	case stepConfigureCamera:
 		return "Applying camera configuration..."
@@ -196,7 +196,7 @@ func (m Model) renderCameraMainContent() string {
 				"FPS: 30\n"+
 				"Preview: http://localhost:%s/camera"+
 				"Press 'r' to remove the camera configuration",
-			m.selectedCamera,
+			m.selectedCamera.Name,
 			m.server.Port())
 	}
 

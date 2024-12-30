@@ -59,9 +59,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cameraSetupStep = stepNoCameraConfigured
 					return m, nil
 				}
-				m.availableCameras = make([]string, len(devices))
+				m.availableCameras = make([]camera.Device, len(devices))
 				for i, device := range devices {
-					m.availableCameras[i] = device.ID
+					m.availableCameras[i] = device
 				}
 
 				if len(m.availableCameras) > 0 {
@@ -104,7 +104,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.addCameraMessage(fmt.Sprintf("Enter pressed, current step: %v", m.cameraSetupStep), false)
 				switch m.cameraSetupStep {
 				case stepSelectCamera:
-					if m.selectedCamera != "" {
+					if m.selectedCamera.ID != "" {
 						m.addCameraMessage(fmt.Sprintf("Current Step before transition: %v", m.cameraSetupStep), false)
 
 						m.cameraSetupStep = stepTestCamera
@@ -112,7 +112,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.status = "Testing camera..."
 						m.addCameraMessage("Starting camera test", false)
 						// Open the selected camera and start streaming
-						err := m.cameraManager.OpenCamera(m.selectedCamera, camera.StreamConfig{
+						err := m.cameraManager.OpenCamera(m.selectedCamera.ID, camera.StreamConfig{
 							Width:     640,
 							Height:    480,
 							Framerate: 30,
@@ -121,7 +121,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							m.addCameraMessage(fmt.Sprintf("Failed to open camera: %v", err), true)
 						}
 
-						stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera)
+						stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera.ID)
 						if err == nil {
 							m.addCameraMessage("Starting camera stream", false)
 							go func() {
@@ -140,7 +140,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case stepTestCamera:
 					m.addCameraMessage("In test step, starting stream", false)
 					// Start streaming immediately when we enter test step
-					stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera)
+					stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera.ID)
 					if err == nil { // Changed condition, start stream on success
 						m.addCameraMessage("Starting camera stream", false)
 						go func() {
@@ -207,8 +207,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activeTab == cameraTab && m.cameraConfigured {
 				// Reset camera setup
 				m.cameraSetupStep = stepNoCameraConfigured
-				m.selectedCamera = ""
-				m.availableCameras = make([]string, 0)
+				m.selectedCamera.ID = ""
+				m.availableCameras = make([]camera.Device, 0)
 				m.cameraConfigured = false
 				m.status = "!! Camera setup reset !!"
 			}

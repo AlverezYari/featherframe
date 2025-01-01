@@ -29,7 +29,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case logUpdateMsg:
 		// Refresh view when a log update occurs
-		m.logViewport.SetContent(strings.Join(m.logs, "\n"))
 		return m, nil
 
 	case tea.KeyMsg:

@@ -147,9 +147,12 @@ func New(configPath string, config *config.AppConfig) Model {
 			{title: "Server", id: serverTab},
 		},
 		logViewport: func() viewport.Model {
-			vp := viewport.New(0, 10)
+			vp := viewport.New(0, 10) // Initialize viewport with default dimensions
 			vp.MouseWheelEnabled = true
-			vp.YPosition = 0
+			vp.Width = 80     // Adjust this dynamically as needed
+			vp.Height = 10    // Number of visible log lines
+			vp.YPosition = 0  // Top alignment
+			vp.SetContent("") // Start with an empty log
 			return vp
 		}(),
 		logs: make([]string, 0),

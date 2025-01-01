@@ -4,6 +4,7 @@ package tui
 import (
 	"fmt"
 	"github.com/charmbracelet/lipgloss"
+	"strconv"
 	"strings"
 )
 
@@ -100,11 +101,12 @@ func (m Model) renderActiveTabContent() string {
 			"• Model: Loaded\n" +
 			"• Detections: 0\n" +
 			"• Confidence Threshold: 0.8"
-	case uploadTab:
-		return "Upload Status:\n" +
-			"• Queue: Empty\n" +
-			"• Last Upload: Never\n" +
-			"• Storage Used: 0MB"
+	case storageTab:
+		return "Storage Status:\n" +
+			"• Path: /home/pi/birdwatcher\n" +
+			"• Total: 100GB\n" +
+			"• Used: 10GB\n" +
+			"• Free: 90GB"
 	case serverTab:
 		var content strings.Builder
 
@@ -141,11 +143,13 @@ func (m Model) renderCameraMainContent() string {
 			fmt.Sprintf(
 				"Camera Status: Active\n"+
 					"Device: %s\n"+
-					"Resolution: 1080p\n"+
-					"FPS: 30\n"+
+					"Resolution: %s\n"+
+					"FPS: %s\n"+
 					"Preview: http://localhost:%s/camera\n"+
 					"Press 'r' to remove the camera configuration",
-				m.selectedCamera,
+				m.config.CameraConfig.DeviceName,
+				m.config.CameraConfig.StreamConfig.Resolution,
+				strconv.Itoa(m.config.CameraConfig.StreamConfig.FPS),
 				m.server.Port()))
 	}
 	switch m.cameraSetupStep {
@@ -181,7 +185,7 @@ func (m Model) renderCameraMainContent() string {
 		return styleBoxed.Render(
 			fmt.Sprintf("Testing Camera: %s\n\n"+
 				"• Preview available at: http://localhost:%s/setup-preview\n"+
-				"• Press Enter to continue witht he config if preview looks good\n"+
+				"• Press Enter to continue with the config if preview looks good\n"+
 				"• Press 'b' to go back to camera selection",
 				m.selectedCamera.Name, m.server.Port()))
 
@@ -194,7 +198,7 @@ func (m Model) renderCameraMainContent() string {
 				"Device: %s\n"+
 				"Resolution: 1080p\n"+
 				"FPS: 30\n"+
-				"Preview: http://localhost:%s/camera"+
+				"Preview: http://localhost:%s/camera\n"+
 				"Press 'r' to remove the camera configuration",
 			m.selectedCamera.Name,
 			m.server.Port())

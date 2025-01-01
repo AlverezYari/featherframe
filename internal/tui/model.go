@@ -17,7 +17,7 @@ const (
 	cameraTab tabType = iota
 	motionTab
 	classificationTab
-	uploadTab
+	storageTab
 	serverTab
 )
 
@@ -50,7 +50,7 @@ type tickMsg time.Time
 // Model holds our application state
 type Model struct {
 	configPath       string
-	config           config.AppConfig
+	config           *config.AppConfig
 	width            int
 	height           int
 	status           string
@@ -76,41 +76,75 @@ type Model struct {
 func New(configPath string, config *config.AppConfig) Model {
 
 	now := time.Now()
-	s := server.New("8080")
+	s := server.New(config.ServerPort)
 	err := s.Start()
 	if err != nil {
 		fmt.Printf("Error starting server: %v\n", err)
 	}
-	// Init our viewports
-	// logging
-	logViewport := viewport.New(0, 10)
-	logViewport.MouseWheelEnabled = true
-	logViewport.YPosition = 0
-	// others..
+	// Check if the camera is configured
+	if isCameraConfigured(config.CameraConfig) {
+		// Init our viewports
+		// logging
+		logViewport := viewport.New(0, 10)
+		logViewport.MouseWheelEnabled = true
+		logViewport.YPosition = 0
+		// others..
 
-	return Model{
-		configPath:       configPath,
-		config:           *config,
-		status:           "Starting up...",
-		isRunning:        false,
-		startTime:        now,
-		currentTime:      now,
-		activeTab:        cameraTab,
-		serverPort:       "8080",
-		server:           s,
-		cameraSetupStep:  stepNoCameraConfigured,
-		cameraConfigured: false,
-		cameraManager:    camera.NewDarwinManager(),
-		availableCameras: make([]camera.Device, 0),
-		tabs: []tab{
-			{title: "Camera", id: cameraTab},
-			{title: "Motion", id: motionTab},
-			{title: "Classification", id: classificationTab},
-			{title: "Upload", id: uploadTab},
-			{title: "Server", id: serverTab},
-		},
-		logViewport: logViewport,
-		logs:        make([]string, 0),
+		return Model{
+			configPath:       configPath,
+			config:           config,
+			status:           "Camera is configured!",
+			isRunning:        false,
+			startTime:        now,
+			currentTime:      now,
+			activeTab:        cameraTab,
+			serverPort:       config.ServerPort,
+			server:           s,
+			cameraSetupStep:  stepComplete,
+			cameraConfigured: true,
+			cameraManager:    camera.NewDarwinManager(),
+			availableCameras: make([]camera.Device, 0),
+			tabs: []tab{
+				{title: "Camera", id: cameraTab},
+				{title: "Motion", id: motionTab},
+				{title: "Classification", id: classificationTab},
+				{title: "Storage", id: storageTab},
+				{title: "Server", id: serverTab},
+			},
+			logViewport: logViewport,
+			logs:        make([]string, 0),
+		}
+	} else {
+		// Init our viewports
+		// logging
+		logViewport := viewport.New(0, 10)
+		logViewport.MouseWheelEnabled = true
+		logViewport.YPosition = 0
+		// others..
+		return Model{
+			configPath:       configPath,
+			config:           config,
+			status:           "Starting up...",
+			isRunning:        false,
+			startTime:        now,
+			currentTime:      now,
+			activeTab:        cameraTab,
+			serverPort:       config.ServerPort,
+			server:           s,
+			cameraSetupStep:  stepNoCameraConfigured,
+			cameraConfigured: false,
+			cameraManager:    camera.NewDarwinManager(),
+			availableCameras: make([]camera.Device, 0),
+			tabs: []tab{
+				{title: "Camera", id: cameraTab},
+				{title: "Motion", id: motionTab},
+				{title: "Classification", id: classificationTab},
+				{title: "Storage", id: storageTab},
+				{title: "Server", id: serverTab},
+			},
+			logViewport: logViewport,
+			logs:        make([]string, 0),
+		}
 	}
 }
 
@@ -137,6 +171,11 @@ func (m *Model) addCameraMessage(msg string, isError bool) {
 	if len(m.cameraMessages) > 10 {
 		m.cameraMessages = m.cameraMessages[1:]
 	}
+}
+
+// Helper function to check if a camera is configured
+func isCameraConfigured(cfg config.CameraConfig) bool {
+	return cfg.DeviceName != "No Camera Configured" && cfg.DeviceID != ""
 }
 
 // Helper command for time updates

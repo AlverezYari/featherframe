@@ -21,7 +21,7 @@ type CameraConfig struct {
 }
 
 type AppConfig struct {
-	ServerPort   int          `json:"server_port"`
+	ServerPort   string       `json:"server_port"`
 	ServerIP     string       `json:"server_ip"`
 	CameraConfig CameraConfig `json:"camera"`
 }
@@ -37,7 +37,7 @@ func defaultConfig() *AppConfig {
 				FPS:        30,
 			}},
 		ServerIP:   "localhost",
-		ServerPort: 8080,
+		ServerPort: "8080",
 	}
 }
 
@@ -49,7 +49,7 @@ func getConfigPath() (string, error) {
 	}
 
 	// Define the path to the ~/.config/featherfinder directory
-	configDir := filepath.Join(homeDir, ".config", "featherfinder")
+	configDir := filepath.Join(homeDir, ".config", "featherframe")
 
 	// Ensure the directory exists
 	if err := os.MkdirAll(configDir, 0755); err != nil {

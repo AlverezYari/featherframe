@@ -31,7 +31,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "ctrl+c":
 			// Save the configuration
-			config.Save(&m.config)
+			config.Save(m.config)
 			// Quit the program
 			return m, tea.Quit
 		case "1":
@@ -41,7 +41,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "3":
 			m.activeTab = classificationTab
 		case "4":
-			m.activeTab = uploadTab
+			m.activeTab = storageTab
 		case "5":
 			m.activeTab = serverTab
 		case "c":
@@ -157,6 +157,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if msg.String() == "enter" {
 						m.cameraSetupStep = stepComplete
 						m.status = "Configuring camera..."
+						m.config.CameraConfig = config.CameraConfig{
+							DeviceID:   m.selectedCamera.ID,
+							DeviceName: m.selectedCamera.Name,
+							StreamConfig: config.StreamConfig{
+								Resolution: "640x480",
+								FPS:        30,
+							},
+						}
+
 						return m, nil
 					}
 
@@ -167,6 +176,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 
 				case stepComplete:
+					config.Save(m.config)
 					return m, nil
 
 				}

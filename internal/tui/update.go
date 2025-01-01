@@ -27,6 +27,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentTime = time.Time(msg)
 		return m, timeTickCmd()
 
+	case logUpdateMsg:
+		// Refresh view when a log update occurs
+		m.logViewport.SetContent(strings.Join(m.logs, "\n"))
+		return m, nil
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
@@ -34,6 +39,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			config.Save(m.config)
 			// Quit the program
 			return m, tea.Quit
+
 		case "1":
 			m.activeTab = cameraTab
 		case "2":
@@ -44,6 +50,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeTab = storageTab
 		case "5":
 			m.activeTab = serverTab
+
 		case "c":
 			if m.activeTab == cameraTab && m.cameraSetupStep == stepNoCameraConfigured {
 				m.cameraSetupStep = stepScanningForCameras
@@ -101,16 +108,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "enter":
 			if m.activeTab == cameraTab {
-				m.addCameraMessage(fmt.Sprintf("Enter pressed, current step: %v", m.cameraSetupStep), false)
+				m.addLog("INFO", fmt.Sprintf("Enter pressed, current step: %v", m.cameraSetupStep))
 				switch m.cameraSetupStep {
 				case stepSelectCamera:
 					if m.selectedCamera.ID != "" {
-						m.addCameraMessage(fmt.Sprintf("Current Step before transition: %v", m.cameraSetupStep), false)
+						m.addLog("INFO", fmt.Sprintf("Current Step before transition: %v", m.cameraSetupStep))
 
 						m.cameraSetupStep = stepTestCamera
-						m.addCameraMessage(fmt.Sprintf("Next Step after transition: %v", m.cameraSetupStep), false)
+						m.addLog("INFO", fmt.Sprintf("Next Step after transition: %v", m.cameraSetupStep))
 						m.status = "Testing camera..."
-						m.addCameraMessage("Starting camera test", false)
+						m.addLog("INFO", "Starting camera test")
 						// Open the selected camera and start streaming
 						err := m.cameraManager.OpenCamera(m.selectedCamera.ID, camera.StreamConfig{
 							Width:     640,
@@ -118,39 +125,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							Framerate: 30,
 						})
 						if err != nil {
-							m.addCameraMessage(fmt.Sprintf("Failed to open camera: %v", err), true)
+							m.addLog("ERROR", fmt.Sprintf("Failed to open camera: %v", err))
 						}
 
 						stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera.ID)
 						if err == nil {
-							m.addCameraMessage("Starting camera stream", false)
+							m.addLog("INFO", "Starting camera stream")
 							go func() {
-								m.addCameraMessage("Got stream successfully", false)
+								m.addLog("INFO", "Got stream successfully")
 								for frame := range stream {
 									m.server.BroadcastFrame(frame)
 								}
-								m.addCameraMessage("Camera stream ended", false)
+								m.addLog("INFO", "Camera stream ended")
 							}()
 						} else {
-							m.addCameraMessage(fmt.Sprintf("Failed to start stream: %v", err), true)
+							m.addLog("ERROR", fmt.Sprintf("Failed to start stream: %v", err))
 
 						}
 					}
 
 				case stepTestCamera:
-					m.addCameraMessage("In test step, starting stream", false)
+					m.addLog("INFO", "In test step, starting stream")
 					// Start streaming immediately when we enter test step
 					stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera.ID)
 					if err == nil { // Changed condition, start stream on success
-						m.addCameraMessage("Starting camera stream", false)
+						m.addLog("INFO", "Starting camera stream")
 						go func() {
 							for frame := range stream {
 								m.server.BroadcastFrame(frame)
 							}
-							m.addCameraMessage("Camera stream ended", false)
+							m.addLog("INFO", "Camera stream ended")
 						}()
 					} else {
-						m.addCameraMessage(fmt.Sprintf("Failed to start stream: %v", err), true)
+						m.addLog("ERROR", fmt.Sprintf("Failed to start stream: %v", err))
 					}
 
 					// Handle enter press to move to next step
@@ -186,7 +193,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 								}
 							}()
 						} else {
-							m.addCameraMessage(fmt.Sprintf("Failed to start stream: %v", err), true)
+							m.addLog("ERROR", fmt.Sprintf("Failed to start stream: %v", err))
 						}
 					}
 
@@ -235,6 +242,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cameraConfigured = false
 				m.status = "!! Camera setup reset !!"
 			}
+		case "v": // Toggle logging verbosity
+			m.verbosity++
+			if m.verbosity > VerbosityDebug {
+				m.verbosity = VerbosityError
+			}
+			switch m.verbosity {
+			case VerbosityError:
+				m.status = "Verbosity: ERROR"
+			case VerbosityInfo:
+				m.status = "Verbosity: INFO"
+			case VerbosityDebug:
+				m.status = "Verbosity: DEBUG"
+			}
+
+			return m, nil
+
 		case "tab":
 			// Cycle through tabs
 			m.activeTab = (m.activeTab + 1) % tabType(len(m.tabs))

@@ -32,6 +32,11 @@ var (
 	tabSeparatorStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("237")).
 				SetString("|")
+
+	footerStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFA500")).
+			Background(lipgloss.Color("#333333")).
+			Padding(1, 2)
 )
 
 // View renders the UI
@@ -47,7 +52,6 @@ func (m Model) View() string {
 			Align(lipgloss.Right).
 			Render(timeStr),
 	)
-
 	header := headerStyle.Width(m.width).Render(headerContent)
 
 	// Tabs
@@ -55,8 +59,9 @@ func (m Model) View() string {
 
 	// Main content from active tab
 	mainContent := mainContentStyle.Render(m.renderActiveTabContent())
-	// Logs content
-	logs := m.logViewport.View()
+
+	// Logging footer
+	logs := m.renderLogFooter()
 
 	// Status bar
 	statusBar := statusBarStyle.Width(m.width).Render(
@@ -64,7 +69,27 @@ func (m Model) View() string {
 	)
 
 	// Combine all sections
-	return fmt.Sprintf("%s\n%s\n%s\n%s", header, tabs, mainContent, logs, statusBar)
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		header,
+		tabs,
+		mainContent,
+		logs,
+		statusBar,
+	)
+}
+
+// Logging functions
+func (m *Model) renderLogFooter() string {
+	boxWidth := m.width - 3
+
+	// Use the viewport content to render the logs
+	return footerStyle.
+		Width(boxWidth).
+		Border(lipgloss.RoundedBorder(), true).
+		BorderForeground(lipgloss.Color("#FFA500")).
+		Padding(1).
+		Render(m.logViewport.View())
 }
 
 // Helper function to render tabs
@@ -113,24 +138,20 @@ func (m Model) renderActiveTabContent() string {
 		if m.server.IsRunning() {
 			status = fmt.Sprintf("Running on port %s", m.serverPort)
 		}
-		content.WriteString(fmt.Sprintf("Web Server Status:\n"+
-			"• Status: %s\n"+
-			"• Port: %s\n"+
-			"• Press 's' to start/stop server\n"+
-			"• Press 'p' to change port\n\n", status, m.server.Port()))
-		content.WriteString("Recent Logs:\n")
-		content.WriteString("------------\n")
 
-		logs := m.server.GetRecentLogs(10)
-		for _, entry := range logs {
-			content.WriteString(fmt.Sprintf("%s\n",
-				lipgloss.NewStyle().
-					Foreground(lipgloss.Color("241")).
-					Render(entry.Message)))
-		}
+		content.WriteString(fmt.Sprintf(
+			"Web Server Status:\n"+
+				"• Status: %s\n"+
+				"• Port: %s\n"+
+				"• Press 's' to start/stop server\n"+
+				"• Press 'p' to change port\n\n",
+			status, m.server.Port(),
+		))
 
+		// Return server status content (logs are now in the unified log box)
 		return content.String()
 	}
+
 	return ""
 }
 
@@ -209,26 +230,8 @@ func (m Model) renderCameraMainContent() string {
 }
 
 func (m Model) renderCameraContent() string {
-	// Get the main content from our renamed function
-	mainContent := m.renderCameraMainContent()
-
-	// Add the message log area
-	var logContent strings.Builder
-	logContent.WriteString("\n\nCamera Log:\n")
-	logContent.WriteString("───────────\n")
-
-	for _, msg := range m.cameraMessages {
-		style := styleNormalMsg
-		if msg.isError {
-			style = styleErrorMsg
-		}
-
-		logContent.WriteString(fmt.Sprintf("%s %s\n",
-			msg.timestamp.Format("15:04:05"),
-			style.Render(msg.text)))
-	}
-
-	return mainContent + logContent.String()
+	// Get the main content for the camera tab
+	return m.renderCameraMainContent()
 }
 
 // Added some styling for our camera tab, logging and content

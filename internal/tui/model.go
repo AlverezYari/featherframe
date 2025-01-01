@@ -8,6 +8,7 @@ import (
 	"github.com/AlverezYari/featherframe/pkg/camera"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"strings"
 	"time"
 )
 
@@ -24,6 +25,53 @@ const (
 type tab struct {
 	title string
 	id    tabType
+}
+
+// Logging Setup
+
+type Verbosity int
+
+const (
+	VerbosityError Verbosity = iota
+	VerbosityInfo
+	VerbosityDebug
+)
+
+type logUpdateMsg struct{}
+
+func (m *Model) addLog(level, message string) tea.Cmd {
+	logEntry := fmt.Sprintf("[%s] %s", level, message)
+	m.logs = append(m.logs, logEntry)
+
+	// Cap log buffer size
+	if len(m.logs) > 1000 {
+		m.logs = m.logs[1:]
+	}
+
+	// Update the log viewport content
+	m.logViewport.SetContent(strings.Join(m.logs, "\n"))
+	// Return a tea.Cmd to force a TUI refresh
+	return func() tea.Msg {
+		return logUpdateMsg{} // Define a custom message type for log updates
+	}
+}
+
+func (m *Model) logCallback(level string, message string) {
+	// Use m.addLog but ignore the tea.Cmd it returns
+	_ = m.addLog(level, message)
+}
+
+func (m *Model) shouldShowLog(level string) bool {
+	switch m.verbosity {
+	case VerbosityDebug:
+		return true
+	case VerbosityInfo:
+		return level != "DEBUG"
+	case VerbosityError:
+		return level == "ERROR"
+	default:
+		return false
+	}
 }
 
 // CameraTabContent holds the content for the camera tab
@@ -70,82 +118,60 @@ type Model struct {
 	selectedCamera   camera.Device
 	logViewport      viewport.Model
 	logs             []string // Log messages
+	verbosity        Verbosity
 }
 
 // New returns a Model with initial state
 func New(configPath string, config *config.AppConfig) Model {
-
 	now := time.Now()
-	s := server.New(config.ServerPort)
-	err := s.Start()
-	if err != nil {
-		fmt.Printf("Error starting server: %v\n", err)
-	}
-	// Check if the camera is configured
-	if isCameraConfigured(config.CameraConfig) {
-		// Init our viewports
-		// logging
-		logViewport := viewport.New(0, 10)
-		logViewport.MouseWheelEnabled = true
-		logViewport.YPosition = 0
-		// others..
 
-		return Model{
-			configPath:       configPath,
-			config:           config,
-			status:           "Camera is configured!",
-			isRunning:        false,
-			startTime:        now,
-			currentTime:      now,
-			activeTab:        cameraTab,
-			serverPort:       config.ServerPort,
-			server:           s,
-			cameraSetupStep:  stepComplete,
-			cameraConfigured: true,
-			cameraManager:    camera.NewDarwinManager(),
-			availableCameras: make([]camera.Device, 0),
-			tabs: []tab{
-				{title: "Camera", id: cameraTab},
-				{title: "Motion", id: motionTab},
-				{title: "Classification", id: classificationTab},
-				{title: "Storage", id: storageTab},
-				{title: "Server", id: serverTab},
-			},
-			logViewport: logViewport,
-			logs:        make([]string, 0),
-		}
-	} else {
-		// Init our viewports
-		// logging
-		logViewport := viewport.New(0, 10)
-		logViewport.MouseWheelEnabled = true
-		logViewport.YPosition = 0
-		// others..
-		return Model{
-			configPath:       configPath,
-			config:           config,
-			status:           "Starting up...",
-			isRunning:        false,
-			startTime:        now,
-			currentTime:      now,
-			activeTab:        cameraTab,
-			serverPort:       config.ServerPort,
-			server:           s,
-			cameraSetupStep:  stepNoCameraConfigured,
-			cameraConfigured: false,
-			cameraManager:    camera.NewDarwinManager(),
-			availableCameras: make([]camera.Device, 0),
-			tabs: []tab{
-				{title: "Camera", id: cameraTab},
-				{title: "Motion", id: motionTab},
-				{title: "Classification", id: classificationTab},
-				{title: "Storage", id: storageTab},
-				{title: "Server", id: serverTab},
-			},
-			logViewport: logViewport,
-			logs:        make([]string, 0),
-		}
+	// Create the model first
+	m := Model{
+		configPath:       configPath,
+		config:           config,
+		status:           "Starting up...",
+		isRunning:        false,
+		startTime:        now,
+		currentTime:      now,
+		activeTab:        cameraTab,
+		serverPort:       config.ServerPort,
+		cameraSetupStep:  stepNoCameraConfigured,
+		cameraConfigured: isCameraConfigured(config.CameraConfig),
+		cameraManager:    camera.NewDarwinManager(),
+		availableCameras: make([]camera.Device, 0),
+		tabs: []tab{
+			{title: "Camera", id: cameraTab},
+			{title: "Motion", id: motionTab},
+			{title: "Classification", id: classificationTab},
+			{title: "Storage", id: storageTab},
+			{title: "Server", id: serverTab},
+		},
+		logViewport: func() viewport.Model {
+			vp := viewport.New(0, 10)
+			vp.MouseWheelEnabled = true
+			vp.YPosition = 0
+			return vp
+		}(),
+		logs: make([]string, 0),
 	}
+
+	// Initialize and start the server after creating the Model
+	m.server = server.New(config.ServerPort, m.logCallback)
+	err := m.server.Start()
+	if err != nil {
+		m.addLog("ERROR", fmt.Sprintf("Error starting server: %v", err))
+	}
+
+	// Update the status if the camera is configured
+	if m.cameraConfigured {
+		m.status = "Camera is configured!"
+		m.cameraSetupStep = stepComplete
+	} else {
+		m.status = "Starting up..."
+		m.cameraSetupStep = stepNoCameraConfigured
+	}
+
+	return m
 }
 
 // Init runs any initial IO

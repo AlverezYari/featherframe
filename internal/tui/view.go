@@ -4,7 +4,6 @@ package tui
 import (
 	"fmt"
 	"github.com/charmbracelet/lipgloss"
-	"strconv"
 	"strings"
 )
 
@@ -144,13 +143,15 @@ func (m Model) renderCameraMainContent() string {
 				"Camera Status: Active\n"+
 					"Device: %s\n"+
 					"Resolution: %s\n"+
-					"FPS: %s\n"+
-					"Preview: http://localhost:%s/camera\n"+
+					"FPS: %d\n"+
+					"Live Monitor: http://localhost:%s/live-monitor\n"+
 					"Press 'r' to remove the camera configuration",
 				m.config.CameraConfig.DeviceName,
 				m.config.CameraConfig.StreamConfig.Resolution,
-				strconv.Itoa(m.config.CameraConfig.StreamConfig.FPS),
-				m.server.Port()))
+				m.config.CameraConfig.StreamConfig.FPS,
+				m.server.Port(),
+			),
+		)
 	}
 	switch m.cameraSetupStep {
 	case stepNoCameraConfigured:

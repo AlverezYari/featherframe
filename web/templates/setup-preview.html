@@ -1,15 +1,24 @@
 <!-- web/templates/setup-preview.html -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Camera Setup Preview</title>
-    <link rel="stylesheet" href="/static/css/setup-preview.css">
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <div class="preview-container">
-        <h2>Camera Setup Preview</h2>
-        <img id="camera-feed" alt="Camera Feed">
-        <div class="status">Connection Status: <span id="status">Connecting...</span></div>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white shadow-md rounded-lg p-6 max-w-md w-full text-center">
+        <h2 class="text-2xl font-semibold text-gray-800">Camera Setup Preview</h2>
+            <!-- Camera feed div -->
+            <div class="mt-4">
+                <img id="camera-feed" src="/static/images/placeholder.png" alt="Camera Feed" 
+                    class="rounded-md w-full max-h-[500px] object-cover">
+            </div>
+        <!-- End of camera feed div -->
+        <div class="mt-4 text-gray-600">
+            Connection Status: <span id="status" class="font-semibold text-yellow-500">Connecting...</span>
+        </div>
     </div>
     <script src="/static/js/setup-preview.js"></script>
 </body>

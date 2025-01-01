@@ -1,4 +1,6 @@
 // web/static/js/setup-preview.js
+
+function () {
 console.log('setup-preview.js loaded');
 
 const ws = new WebSocket('ws://' + window.location.host + '/ws/camera');
@@ -26,3 +28,16 @@ console.error('Websocket Error:', err);
 status.textContent = 'Error Connecting';
 
 };
+
+document.addEventListener('DOMContentLoaded', () => {
+    const statusElement = document.getElementById('status');
+
+    // Simulate connecting to the camera feed
+    setTimeout(() => {
+        statusElement.textContent = 'Connected';
+        statusElement.classList.remove('text-yellow-500');
+        statusElement.classList.add('text-green-500');
+    }, 2000); // Simulate a delay
+});
+
+})();

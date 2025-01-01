@@ -91,6 +91,16 @@ func (s *Server) Start() error {
 		tmpl.Execute(w, nil)
 	})
 
+	mux.HandleFunc("/live-monitor", func(w http.ResponseWriter, r *http.Request) {
+		tmpl, err := template.ParseFiles("web/templates/live-monitor.html")
+		if err != nil {
+			s.logger.Printf("Error parsing template: %v", err)
+			http.Error(w, "Template error", http.StatusInternalServerError)
+			return
+		}
+		tmpl.Execute(w, nil)
+	})
+
 	s.server = &http.Server{
 		Addr:    ":" + s.port,
 		Handler: loggingMux,

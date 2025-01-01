@@ -177,6 +177,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				case stepComplete:
 					config.Save(m.config)
+					if m.cameraConfigured {
+						stream, err := m.cameraManager.GetStreamChannel(m.config.CameraConfig.DeviceID)
+						if err == nil {
+							go func() {
+								for frame := range stream {
+									m.server.BroadcastFrame(frame)
+								}
+							}()
+						} else {
+							m.addCameraMessage(fmt.Sprintf("Failed to start stream: %v", err), true)
+						}
+					}
+
 					return m, nil
 
 				}

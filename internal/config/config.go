@@ -63,6 +63,7 @@ func getConfigPath() (string, error) {
 // Load reads the config file from the ~/.config/featherfinder directory and returns a config object
 func Load() (*AppConfig, error) {
 	configPath, err := getConfigPath()
+	fmt.Printf("Loading config from %s\n", configPath)
 	if err != nil {
 		return nil, fmt.Errorf("error getting config path: %v", err)
 	}

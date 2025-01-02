@@ -13,7 +13,7 @@
     };
 
     ws.onmessage = (evt) => {
-        console.log('Received Frame');
+        // console.log('Received Frame');
         const blob = new Blob([evt.data], { type: 'image/jpeg' });
         img.src = URL.createObjectURL(blob);
     };

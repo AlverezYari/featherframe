@@ -1,6 +1,6 @@
 // web/static/js/setup-preview.js
 
-function () {
+(function () {
 console.log('setup-preview.js loaded');
 
 const ws = new WebSocket('ws://' + window.location.host + '/ws/camera');
@@ -13,7 +13,7 @@ ws.onopen = () => {
 };
 
 ws.onmessage = (evt) => {
-    console.log('Recieved Frame');
+    // console.log('Recieved Frame');
     const blob = new Blob([evt.data], {type: 'image/jpeg'});
     img.src = URL.createObjectURL(blob);
 };

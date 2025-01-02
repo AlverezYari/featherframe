@@ -192,7 +192,6 @@ func (s *Server) addLog(level, message string) {
 	s.logMutex.Unlock()
 
 	// Debugging: Confirm callback is invoked
-	fmt.Printf("Server Log: [%s] %s\n", level, message)
 	if s.logCallback != nil {
 		s.logCallback(level, message)
 	} else {

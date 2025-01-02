@@ -1,18 +1,18 @@
-// internal/tui/view.go
+// view.go
 package tui
 
 import (
 	"fmt"
-	"github.com/charmbracelet/lipgloss"
 	"strings"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
-// Style definitions
+// --- Styles ---
 var (
 	headerStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("62")).
-			Foreground(lipgloss.Color("0")).
-			Padding(0, 1)
+			Background(lipgloss.Color("#3CB371")).
+			Foreground(lipgloss.Color("#FFFFFF"))
 
 	statusBarStyle = lipgloss.NewStyle().
 			Background(lipgloss.Color("237")).
@@ -23,141 +23,152 @@ var (
 				Padding(1, 0)
 
 	tabStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("#98FB98")). // PaleGreen
+			Foreground(lipgloss.Color("#000000")).
 			Padding(0, 1)
 
 	activeTabStyle = tabStyle.Copy().
-			Background(lipgloss.Color("62")).
-			Foreground(lipgloss.Color("0"))
+			Background(lipgloss.Color("#228B22")). // ForestGreen
+			Foreground(lipgloss.Color("#FFFFFF"))  // White text
 
 	tabSeparatorStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("237")).
+				Foreground(lipgloss.Color("#556B2F")). // DarkOliveGreen
 				SetString("|")
 
 	footerStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFA500")).
 			Background(lipgloss.Color("#333333")).
 			Padding(1, 2)
+
+	styleBoxed = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			Padding(1).
+			BorderForeground(lipgloss.Color("79"))
 )
 
-// View renders the UI
-func (m Model) View() string {
+// View renders the TUI
+func (m *Model) View() string {
 	timeStr := m.currentTime.Format("Mon Jan 2 15:04:05 2006")
 
-	// Header with tabs
+	//----------------------------------------------------------------------
+	// 1. Header at the very top
+	//----------------------------------------------------------------------
+	leftText := "🐦 FeatherFrame "
+	leftWidth := lipgloss.Width(leftText)
+	availableWidth := m.width - leftWidth
+	if availableWidth < 0 {
+		// If terminal is super narrow, avoid negative widths
+		availableWidth = 0
+	}
+
 	headerContent := lipgloss.JoinHorizontal(
-		lipgloss.Center,
-		"🐦 Birdwatcher",
-		lipgloss.NewStyle().
-			Width(m.width-18).
+		lipgloss.Left,
+		headerStyle.Render(leftText),
+		headerStyle.Copy().
+			Width(availableWidth).
 			Align(lipgloss.Right).
 			Render(timeStr),
 	)
-	header := headerStyle.Width(m.width).Render(headerContent)
+	headerRendered := headerStyle.Copy().
+		Width(m.width).
+		Render(headerContent)
 
-	// Tabs
-	tabs := m.renderTabs()
+	//----------------------------------------------------------------------
+	// 2. Tabs right below the header
+	//----------------------------------------------------------------------
+	tabsRendered := m.renderTabs()
 
-	// Main content from active tab
-	mainContent := mainContentStyle.Render(m.renderActiveTabContent())
+	//----------------------------------------------------------------------
+	// 3. Main content
+	//----------------------------------------------------------------------
+	mainContent := m.renderActiveTabContent()
+	mainContentRendered := mainContentStyle.
+		Width(m.width).
+		Render(mainContent)
 
-	// Logging footer
-	logs := m.renderLogFooter()
-
-	// Status bar
-	statusBar := statusBarStyle.Width(m.width).Render(
-		fmt.Sprintf("Status: %s | Tab or Num 1-4: Switch Views | Press q to quit", m.status),
-	)
-
-	// Combine all sections
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
-		header,
-		tabs,
-		mainContent,
-		logs,
-		statusBar,
-	)
-}
-
-// Logging functions
-func (m *Model) renderLogFooter() string {
-	boxWidth := m.width - 3
-
-	// Use the viewport content to render the logs
-	return footerStyle.
-		Width(boxWidth).
+	//----------------------------------------------------------------------
+	// 4. Logs: FIXED at 10 lines, never grows.
+	//    Let the user scroll in those 10 lines if needed.
+	//----------------------------------------------------------------------
+	const logBoxHeight = 10
+	logsRendered := footerStyle.
+		Width(m.width-3).
+		Height(logBoxHeight). // Hard-coded to 10 lines
 		Border(lipgloss.RoundedBorder(), true).
 		BorderForeground(lipgloss.Color("#FFA500")).
 		Padding(1).
 		Render(m.logViewport.View())
+
+	//----------------------------------------------------------------------
+	// 5. Status bar at the bottom
+	//----------------------------------------------------------------------
+	statusBarRendered := statusBarStyle.
+		Width(m.width).
+		Render(fmt.Sprintf("Status: %s | Tab or Num 1-4: Switch Views | Press q to quit", m.status))
+
+	//----------------------------------------------------------------------
+	// 6. Join everything vertically in the final layout
+	//----------------------------------------------------------------------
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		headerRendered, // top
+		tabsRendered,   // below header
+		mainContentRendered,
+		logsRendered,      // 10-line logs
+		statusBarRendered, // bottom
+	)
 }
 
-// Helper function to render tabs
-func (m Model) renderTabs() string {
-	var renderedTabs []string
+// renderLogFooter (unused in this approach, but kept in case you need it)
+// func (m *Model) renderLogFooter() string {
+// 	boxWidth := m.width - 3
+// 	return footerStyle.
+// 		Width(boxWidth).
+// 		Border(lipgloss.RoundedBorder(), true).
+// 		BorderForeground(lipgloss.Color("#FFA500")).
+// 		Padding(1).
+// 		Render(m.logViewport.View())
+// }
 
+// renderTabs
+func (m *Model) renderTabs() string {
+	var rendered []string
 	for _, t := range m.tabs {
 		style := tabStyle
 		if t.id == m.activeTab {
 			style = activeTabStyle
 		}
-		renderedTabs = append(renderedTabs, style.Render(t.title))
+		rendered = append(rendered, style.Render(t.title))
 	}
-
-	return lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		renderedTabs...,
-	)
+	return lipgloss.JoinHorizontal(lipgloss.Top, rendered...)
 }
 
-// Helper function to render active tab content
-func (m Model) renderActiveTabContent() string {
+// renderActiveTabContent
+func (m *Model) renderActiveTabContent() string {
 	switch m.activeTab {
 	case cameraTab:
 		return m.renderCameraContent()
 	case motionTab:
-		return "Motion Detection:\n" +
-			"• Status: Active\n" +
-			"• Sensitivity: Medium\n" +
-			"• Events Today: 0"
+		return "Motion Detection:\n• Status: Active\n• Sensitivity: Medium\n• Events Today: 0"
 	case classificationTab:
-		return "Bird Classification:\n" +
-			"• Model: Loaded\n" +
-			"• Detections: 0\n" +
-			"• Confidence Threshold: 0.8"
+		return "Bird Classification:\n• Model: Loaded\n• Detections: 0\n• Confidence Threshold: 0.8"
 	case storageTab:
-		return "Storage Status:\n" +
-			"• Path: /home/pi/birdwatcher\n" +
-			"• Total: 100GB\n" +
-			"• Used: 10GB\n" +
-			"• Free: 90GB"
+		return "Storage Status:\n• Path: /home/pi/birdwatcher\n• Total: 100GB\n• Used: 10GB\n• Free: 90GB"
 	case serverTab:
-		var content strings.Builder
-
 		status := "Stopped"
 		if m.server.IsRunning() {
 			status = fmt.Sprintf("Running on port %s", m.serverPort)
 		}
-
-		content.WriteString(fmt.Sprintf(
-			"Web Server Status:\n"+
-				"• Status: %s\n"+
-				"• Port: %s\n"+
-				"• Press 's' to start/stop server\n"+
-				"• Press 'p' to change port\n\n",
+		return fmt.Sprintf(
+			"Web Server Status:\n• Status: %s\n• Port: %s\n• Press 's' to start/stop server\n• Press 'p' to change port\n",
 			status, m.server.Port(),
-		))
-
-		// Return server status content (logs are now in the unified log box)
-		return content.String()
+		)
 	}
-
 	return ""
 }
 
-// CHANGED: Update camera tab content
-func (m Model) renderCameraMainContent() string {
-	// if we have a configured camera show that first!
+// renderCameraContent
+func (m *Model) renderCameraContent() string {
 	if m.cameraConfigured {
 		return styleBoxed.Render(
 			fmt.Sprintf(
@@ -174,6 +185,7 @@ func (m Model) renderCameraMainContent() string {
 			),
 		)
 	}
+
 	switch m.cameraSetupStep {
 	case stepNoCameraConfigured:
 		return styleBoxed.Render(
@@ -185,31 +197,30 @@ func (m Model) renderCameraMainContent() string {
 				"• Configure camera settings")
 
 	case stepScanningForCameras:
-		return "Scanning for cameras...\n" +
-			"This may take a few moments..."
+		return "Scanning for cameras...\nThis may take a few moments..."
 
 	case stepSelectCamera:
-		var content strings.Builder
-		content.WriteString("Available Cameras:\n\n")
-
-		for i, camera := range m.availableCameras {
-			prefix := "  "
-			if camera == m.selectedCamera {
-				prefix = "→ "
+		var sb strings.Builder
+		sb.WriteString("Available Cameras:\n\n")
+		for i, cam := range m.availableCameras {
+			cursor := "  "
+			if cam == m.selectedCamera {
+				cursor = "→ "
 			}
-			content.WriteString(fmt.Sprintf("%s%d: %s (%s)\n", prefix, i+1, camera.Name, camera.ID))
+			sb.WriteString(fmt.Sprintf("%s%d: %s (%s)\n", cursor, i+1, cam.Name, cam.ID))
 		}
-
-		content.WriteString("\nUse ↑/↓ to select, Enter to confirm")
-		return content.String()
+		sb.WriteString("\nUse ↑/↓ to select, Enter to confirm.")
+		return sb.String()
 
 	case stepTestCamera:
 		return styleBoxed.Render(
-			fmt.Sprintf("Testing Camera: %s\n\n"+
-				"• Preview available at: http://localhost:%s/setup-preview\n"+
-				"• Press Enter to continue with the config if preview looks good\n"+
-				"• Press 'b' to go back to camera selection",
-				m.selectedCamera.Name, m.server.Port()))
+			fmt.Sprintf(
+				"Testing Camera: %s\n\n"+
+					"• Preview at: http://localhost:%s/setup-preview\n"+
+					"• Press Enter to continue if good\n"+
+					"• Press 'b' to go back to camera selection",
+				m.selectedCamera.Name, m.server.Port()),
+		)
 
 	case stepConfigureCamera:
 		return "Applying camera configuration..."
@@ -218,32 +229,12 @@ func (m Model) renderCameraMainContent() string {
 		return fmt.Sprintf(
 			"Camera Status: Active\n"+
 				"Device: %s\n"+
-				"Resolution: 1080p\n"+
+				"Resolution: 640x480\n"+
 				"FPS: 30\n"+
 				"Preview: http://localhost:%s/camera\n"+
-				"Press 'r' to remove the camera configuration",
-			m.selectedCamera.Name,
-			m.server.Port())
+				"Press 'r' to remove camera config",
+			m.selectedCamera.Name, m.server.Port(),
+		)
 	}
-
 	return ""
 }
-
-func (m Model) renderCameraContent() string {
-	// Get the main content for the camera tab
-	return m.renderCameraMainContent()
-}
-
-// Added some styling for our camera tab, logging and content
-var styleBoxed = lipgloss.NewStyle().
-	Border(lipgloss.RoundedBorder()).
-	Padding(1).
-	BorderForeground(lipgloss.Color("62"))
-
-var (
-	styleNormalMsg = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241"))
-
-	styleErrorMsg = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("red"))
-)

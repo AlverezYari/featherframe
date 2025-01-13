@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 
@@ -97,6 +98,23 @@ type Model struct {
 	logThrottle   time.Duration // Wait time between re-renders
 }
 
+func newCameraManager(logCallback func(level, message string)) camera.CameraManager {
+	switch runtime.GOOS {
+	case "darwin":
+		mgr := camera.NewDarwinManager()
+		mgr.SetLoggerCallback(logCallback) // <-- set it
+		return mgr
+	case "linux":
+		mgr := camera.NewLinuxCameraManager()
+		mgr.SetLoggerCallback(logCallback) // <-- set it
+		return mgr
+	default:
+		mgr := camera.NewDarwinManager()
+		mgr.SetLoggerCallback(logCallback) // <-- set it
+		return mgr
+	}
+}
+
 // New returns a pointer to a Model with initial state
 func New(configPath string, cfg *config.AppConfig) *Model {
 	now := time.Now()
@@ -111,7 +129,7 @@ func New(configPath string, cfg *config.AppConfig) *Model {
 		serverPort:       cfg.ServerPort,
 		cameraSetupStep:  stepNoCameraConfigured,
 		cameraConfigured: isCameraConfigured(cfg.CameraConfig),
-		cameraManager:    camera.NewDarwinManager(),
+		// cameraManager: ZeroVal, we'll set it in directly after our model is invoked.
 		availableCameras: []camera.Device{},
 		tabs: []tab{
 			{title: "Camera", id: cameraTab},
@@ -120,20 +138,21 @@ func New(configPath string, cfg *config.AppConfig) *Model {
 			{title: "Storage", id: storageTab},
 			{title: "Server", id: serverTab},
 		},
-		// Logging
 		logs:          make([]string, 0),
 		logBuffer:     make([]string, 0),
 		lastLogUpdate: now,
-		logThrottle:   200 * time.Millisecond, // Adjust as needed
+		logThrottle:   200 * time.Millisecond, // adjust as needed
 	}
 
-	// Set the logging verbosity
+	// Create our cameraManager
+	cm := newCameraManager(m.logCallback)
+	m.cameraManager = cm
+
 	m.verbosity = VerbosityInfo
 
-	// Init the log viewport
 	vp := viewport.New(0, 10)
 	vp.MouseWheelEnabled = true
-	vp.Width = 80 // updated in Update if window resizes
+	vp.Width = 80
 	vp.Height = 10
 	vp.YPosition = 0
 	vp.SetContent("")
@@ -142,11 +161,9 @@ func New(configPath string, cfg *config.AppConfig) *Model {
 	// Start the server
 	m.server = server.New(cfg.ServerPort, m.logCallback)
 	if err := m.server.Start(); err != nil {
-		// Force a log so we see it immediately
 		m.flushLogImmediately("ERROR", fmt.Sprintf("Error starting server: %v", err))
 	}
 
-	// If camera is configured, update status
 	if m.cameraConfigured {
 		m.status = "Camera is configured!"
 		m.cameraSetupStep = stepComplete
@@ -154,6 +171,7 @@ func New(configPath string, cfg *config.AppConfig) *Model {
 		m.status = "Starting up..."
 		m.cameraSetupStep = stepNoCameraConfigured
 	}
+
 	return m
 }
 

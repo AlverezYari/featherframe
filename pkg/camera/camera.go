@@ -49,4 +49,7 @@ type CameraManager interface {
 
 	// Stream access
 	GetStreamChannel(deviceID string) (<-chan []byte, error)
+
+	// Logging
+	SetLoggerCallback(func(level, message string))
 }

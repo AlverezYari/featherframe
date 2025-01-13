@@ -13,8 +13,9 @@ import (
 )
 
 type DarwinCameraManager struct {
-	openDevices map[string]*gocv.VideoCapture
-	logger      *log.Logger
+	openDevices    map[string]*gocv.VideoCapture
+	logger         *log.Logger
+	loggerCallback func(level, message string)
 }
 
 func NewDarwinManager() *DarwinCameraManager {
@@ -22,6 +23,11 @@ func NewDarwinManager() *DarwinCameraManager {
 		openDevices: make(map[string]*gocv.VideoCapture),
 		logger:      log.New(os.Stdout, "[CAMERA] ", log.LstdFlags),
 	}
+}
+
+// Logging func
+func (l *DarwinCameraManager) SetLoggerCallback(cb func(level, message string)) {
+	l.loggerCallback = cb
 }
 
 func (d *DarwinCameraManager) ScanDevices() ([]Device, error) {

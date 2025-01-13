@@ -13,6 +13,7 @@ import (
 // Update must have a pointer receiver if we want to mutate the same instance
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+
 	//---------------------------------------------------------------------------
 	case tea.WindowSizeMsg:
 		// Keep track of app size
@@ -77,7 +78,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.status = "No cameras found"
 					m.cameraSetupStep = stepNoCameraConfigured
 				}
-
 			}
 
 		case "up", "down":
@@ -113,49 +113,55 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.addLog("INFO", fmt.Sprintf("Enter pressed, current step: %v", m.cameraSetupStep))
 
 				switch m.cameraSetupStep {
+
+				//---------------------------------------------------------------------------
 				case stepSelectCamera:
 					if m.selectedCamera.ID != "" {
 						m.addLog("INFO", "Moving from stepSelectCamera to stepTestCamera")
-						m.cameraSetupStep = stepTestCamera
-						m.status = "Testing camera..."
+
 						// Try opening the camera
-						err := m.cameraManager.OpenCamera(m.selectedCamera.ID, camera.StreamConfig{
-							Width:     640,
-							Height:    480,
-							Framerate: 30,
-						})
+						err := m.cameraManager.OpenCamera(
+							m.selectedCamera.ID,
+							camera.StreamConfig{
+								Width:     640,
+								Height:    480,
+								Framerate: 30,
+							},
+						)
 						if err != nil {
 							m.addLog("ERROR", fmt.Sprintf("Failed to open camera: %v", err))
+							// Stay in stepSelectCamera or handle error
+							return m, nil
 						}
-						stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera.ID)
-						if err == nil {
-							m.addLog("INFO", "Camera opened successfully; starting stream goroutine")
-							go func() {
-								for frame := range stream {
-									m.server.BroadcastFrame(frame)
-								}
-								m.addLog("INFO", "Camera stream ended")
-							}()
-						} else {
-							m.addLog("ERROR", fmt.Sprintf("Failed to start stream: %v", err))
-						}
-					}
 
+						// NEW: We just opened the camera. We won't start streaming yet.
+						// Move to stepTestCamera and return.
+						m.cameraSetupStep = stepTestCamera
+						m.status = "Testing camera..."
+					}
+					return m, nil // NEW: Return here so we don't fall through.
+
+				//---------------------------------------------------------------------------
 				case stepTestCamera:
-					// Potentially test the camera stream again or finalize
+					// CHANGED: We now do the actual streaming here
 					stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera.ID)
-					if err == nil {
-						m.addLog("INFO", "Streaming test again on stepTestCamera -> stepComplete")
-						go func() {
-							for frame := range stream {
-								m.server.BroadcastFrame(frame)
-							}
-							m.addLog("INFO", "Camera stream ended in test step")
-						}()
-					} else {
-						m.addLog("ERROR", fmt.Sprintf("Failed to start stream in testCamera: %v", err))
+					if err != nil {
+						m.addLog("ERROR",
+							fmt.Sprintf("Failed to start stream in testCamera: %v", err))
+						// Possibly revert to stepSelectCamera or just log the error
+						return m, nil
 					}
 
+					// If we get the channel, start streaming
+					m.addLog("INFO", "Starting stream in stepTestCamera -> stepComplete")
+					go func() {
+						for frame := range stream {
+							m.server.BroadcastFrame(frame)
+						}
+						m.addLog("INFO", "Camera stream ended in test step")
+					}()
+
+					// Update our status & config
 					m.cameraSetupStep = stepComplete
 					m.status = "Configuring camera..."
 					m.config.CameraConfig = config.CameraConfig{
@@ -166,16 +172,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							FPS:        30,
 						},
 					}
-					return m, nil
+					return m, nil // NEW: Return now, so the next action picks up stepComplete
 
+				//---------------------------------------------------------------------------
 				case stepConfigureCamera:
+					// Potentially not used much, but let's keep it
 					m.cameraConfigured = true
 					m.cameraSetupStep = stepComplete
 					m.status = "Camera configured!"
 					return m, nil
 
+				//---------------------------------------------------------------------------
 				case stepComplete:
+					// Save final config
 					config.Save(m.config)
+					// If camera is configured, optionally start a final stream
 					if m.cameraConfigured {
 						stream, err := m.cameraManager.GetStreamChannel(m.config.CameraConfig.DeviceID)
 						if err == nil {

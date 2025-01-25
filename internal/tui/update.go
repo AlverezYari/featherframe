@@ -133,37 +133,34 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							// Stay in stepSelectCamera or handle error
 							return m, nil
 						}
+						// Immdiately start our stream
+						stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera.ID)
+						if err != nil {
+							m.addLog("ERROR", fmt.Sprintf("Failed to start strea in Selected CameraID: %v", err))
+							return m, nil
+						}
 
-						// NEW: We just opened the camera. We won't start streaming yet.
-						// Move to stepTestCamera and return.
+						go func() {
+							for frame := range stream {
+								m.server.BroadcastFrame(frame)
+							}
+							m.addLog("INFO", "Camera Stream Ended (selectCamera stop!)")
+						}()
+						m.addLog("INFO", "Camera is streaming; moving on to stepTestCamera")
 						m.cameraSetupStep = stepTestCamera
-						m.status = "Testing camera..."
+						m.status = "Camera is streaming"
 					}
-					return m, nil // NEW: Return here so we don't fall through.
+					return m, nil
 
 				//---------------------------------------------------------------------------
 				case stepTestCamera:
-					// CHANGED: We now do the actual streaming here
-					stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera.ID)
-					if err != nil {
-						m.addLog("ERROR",
-							fmt.Sprintf("Failed to start stream in testCamera: %v", err))
-						// Possibly revert to stepSelectCamera or just log the error
-						return m, nil
-					}
 
-					// If we get the channel, start streaming
-					m.addLog("INFO", "Starting stream in stepTestCamera -> stepComplete")
-					go func() {
-						for frame := range stream {
-							m.server.BroadcastFrame(frame)
-						}
-						m.addLog("INFO", "Camera stream ended in test step")
-					}()
+					m.addLog("INFO", "User confirmed camera looks good moving to setupComplete")
 
 					// Update our status & config
 					m.cameraSetupStep = stepComplete
 					m.status = "Configuring camera..."
+
 					m.config.CameraConfig = config.CameraConfig{
 						DeviceID:   m.selectedCamera.ID,
 						DeviceName: m.selectedCamera.Name,

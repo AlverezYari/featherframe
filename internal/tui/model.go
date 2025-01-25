@@ -102,15 +102,15 @@ func newCameraManager(logCallback func(level, message string)) camera.CameraMana
 	switch runtime.GOOS {
 	case "darwin":
 		mgr := camera.NewDarwinManager()
-		mgr.SetLoggerCallback(logCallback) // <-- set it
+		mgr.SetLoggerCallback(logCallback)
 		return mgr
 	case "linux":
 		mgr := camera.NewLinuxCameraManager()
-		mgr.SetLoggerCallback(logCallback) // <-- set it
+		mgr.SetLoggerCallback(logCallback)
 		return mgr
 	default:
 		mgr := camera.NewDarwinManager()
-		mgr.SetLoggerCallback(logCallback) // <-- set it
+		mgr.SetLoggerCallback(logCallback)
 		return mgr
 	}
 }

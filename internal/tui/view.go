@@ -231,7 +231,7 @@ func (m *Model) renderCameraContent() string {
 				"Device: %s\n"+
 				"Resolution: 640x480\n"+
 				"FPS: 30\n"+
-				"Preview: http://localhost:%s/camera\n"+
+				"Preview: http://localhost:%s/live-monitor\n"+
 				"Press 'r' to remove camera config",
 			m.selectedCamera.Name, m.server.Port(),
 		)

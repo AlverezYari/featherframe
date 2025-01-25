@@ -166,15 +166,30 @@ func (s *Server) handleWebSocketCamera(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) BroadcastFrame(frameBytes []byte) {
+func (s *Server) removeConnection(conn *websocket.Conn) {
 	s.wsConnectionsMu.Lock()
 	defer s.wsConnectionsMu.Unlock()
+
+	// close our actual connection
+	_ = conn.Close()
+
+	// Remove the now closed connection from our map
+	delete(s.wsConnections, conn)
+}
+
+func (s *Server) BroadcastFrame(frameBytes []byte) {
+	// Lock our map just long enough to see the current connections
+	s.wsConnectionsMu.Lock()
+	defer s.wsConnectionsMu.Unlock()
+	// For each connection, spin up a goruotine that does he actual WriteMessage
 	for conn := range s.wsConnections {
-		if err := conn.WriteMessage(websocket.BinaryMessage, frameBytes); err != nil {
-			s.addLog("ERROR", fmt.Sprintf("Error writing message to websocket: %v", err))
-			conn.Close()
-			delete(s.wsConnections, conn)
-		}
+		go func(c *websocket.Conn) {
+
+			if err := c.WriteMessage(websocket.BinaryMessage, frameBytes); err != nil {
+				s.addLog("ERROR", fmt.Sprintf("Error writing message to websocket: %v", err))
+				s.removeConnection(c)
+			}
+		}(conn)
 	}
 }
 

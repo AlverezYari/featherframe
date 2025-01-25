@@ -207,11 +207,10 @@ func (l *LinuxCameraManager) GetStreamChannel(deviceID string) (<-chan []byte, e
 		return nil, fmt.Errorf("no done channel found for camera %s", deviceID)
 	}
 
-	frameChan := make(chan []byte)
+	frameChan := make(chan []byte, 5)
 
 	go func() {
 		defer close(frameChan)
-
 		img := gocv.NewMat()
 		defer img.Close()
 
@@ -239,8 +238,13 @@ func (l *LinuxCameraManager) GetStreamChannel(deviceID string) (<-chan []byte, e
 				l.logMsg("ERROR", "Failed to encode frame from %s: %v", deviceID, err)
 				continue
 			}
-
-			frameChan <- buf.GetBytes()
+			bufBytes := buf.GetBytes()
+			buf.Close()
+			select {
+			case frameChan <- bufBytes:
+			default:
+				l.logMsg("DEBUG", "Dropping a frame for %s because the channel is full", deviceID)
+			}
 		}
 	}()
 

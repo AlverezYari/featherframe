@@ -2,7 +2,7 @@
 (function () {
     console.log('live-monitor.js loaded');
 
-    const ws = new WebSocket('ws://' + window.location.host + '/ws/camera');
+    const ws = new WebSocket('ws://' + window.location.host + '/ws/liveMonitor');
     const img = document.getElementById('live-feed'); // Ensure this matches your HTML ID
     const status = document.getElementById('status');
 

@@ -88,6 +88,7 @@ type Model struct {
 	cameraMessages   []cameraMessage
 	availableCameras []camera.Device
 	selectedCamera   camera.Device
+	isStreaming      bool
 
 	// Logging / Verbosity
 	logViewport   viewport.Model
@@ -167,11 +168,31 @@ func New(configPath string, cfg *config.AppConfig) *Model {
 	if m.cameraConfigured {
 		m.status = "Camera is configured!"
 		m.cameraSetupStep = stepComplete
-	} else {
-		m.status = "Starting up..."
-		m.cameraSetupStep = stepNoCameraConfigured
-	}
 
+		// OPEN the camera right now, start streaming for live-monitor
+		err := m.cameraManager.OpenCamera(
+			cfg.CameraConfig.DeviceID,
+			camera.StreamConfig{
+				Width: 640, Height: 480, Framerate: 30,
+			},
+		)
+		if err != nil {
+			m.flushLogImmediately("ERROR",
+				fmt.Sprintf("Error opening camera on startup: %v", err))
+		} else {
+			ch, err2 := m.cameraManager.GetStreamChannel(cfg.CameraConfig.DeviceID)
+			if err2 != nil {
+				m.flushLogImmediately("ERROR",
+					fmt.Sprintf("Error starting stream on startup: %v", err2))
+			} else {
+				go func() {
+					for frame := range ch {
+						m.server.BroadcastFrame(frame)
+					}
+				}()
+			}
+		}
+	}
 	return m
 }
 

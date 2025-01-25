@@ -7,7 +7,7 @@ require (
 	github.com/charmbracelet/bubbletea v1.2.4
 	github.com/charmbracelet/lipgloss v1.0.0
 	github.com/gorilla/websocket v1.5.3
-	gocv.io/x/gocv v0.39.0
+	gocv.io/x/gocv v0.40.0
 )
 
 require (

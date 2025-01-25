@@ -3,7 +3,7 @@
 (function () {
 console.log('setup-preview.js loaded');
 
-const ws = new WebSocket('ws://' + window.location.host + '/ws/camera');
+const ws = new WebSocket('ws://' + window.location.host + '/ws/setupPreview');
 const img = document.getElementById('camera-feed');
 const status = document.getElementById('status');
 

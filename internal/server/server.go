@@ -48,19 +48,13 @@ func (s *Server) Start() error {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/ws/camera", s.handleWebSocketCamera)
+	// Separate handlers for streaming sites
+	mux.HandleFunc("/ws/setupPreview", s.handleWebSocketPreview)
+	mux.HandleFunc("/ws/liveMonitor", s.handleWebSocketLive)
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "FeatherFrame Web Interface")
-	})
-
-	mux.HandleFunc("/focus", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Camera Focus Interface")
-	})
-
-	mux.HandleFunc("/monitor", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Bird Monitoring Interface")
 	})
 
 	mux.HandleFunc("/setup-preview", func(w http.ResponseWriter, r *http.Request) {
@@ -134,6 +128,66 @@ func (s *Server) SetPort(port string) error {
 	}
 	s.port = port
 	return nil
+}
+
+func (s *Server) handleWebSocketPreview(w http.ResponseWriter, r *http.Request) {
+	s.addLog("INFO", fmt.Sprintf("Preview WS connection from %s", r.RemoteAddr))
+	conn, err := s.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		s.addLog("ERROR", fmt.Sprintf("Error upgrading preview WS: %v", err))
+		return
+	}
+
+	s.addLog("INFO", fmt.Sprintf("Preview WS established from: %s", r.RemoteAddr))
+
+	s.wsConnectionsMu.Lock()
+	s.wsConnections[conn] = true
+	s.wsConnectionsMu.Unlock()
+
+	defer func() {
+		conn.Close()
+		s.wsConnectionsMu.Lock()
+		delete(s.wsConnections, conn)
+		s.wsConnectionsMu.Unlock()
+	}()
+
+	for {
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			s.addLog("ERROR", fmt.Sprintf("Preview WS read error: %v", err))
+			break
+		}
+	}
+}
+
+func (s *Server) handleWebSocketLive(w http.ResponseWriter, r *http.Request) {
+	s.addLog("INFO", fmt.Sprintf("LiveMonitor WS attempt from %s", r.RemoteAddr))
+	conn, err := s.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		s.addLog("ERROR", fmt.Sprintf("Error upgrading Live WS: %v", err))
+		return
+	}
+
+	s.addLog("INFO", fmt.Sprintf("LiveMonitor WS established from: %s", r.RemoteAddr))
+
+	s.wsConnectionsMu.Lock()
+	s.wsConnections[conn] = true
+	s.wsConnectionsMu.Unlock()
+
+	defer func() {
+		conn.Close()
+		s.wsConnectionsMu.Lock()
+		delete(s.wsConnections, conn)
+		s.wsConnectionsMu.Unlock()
+	}()
+
+	for {
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			s.addLog("ERROR", fmt.Sprintf("LiveMonitor WS read error: %v", err))
+			break
+		}
+	}
 }
 
 func (s *Server) handleWebSocketCamera(w http.ResponseWriter, r *http.Request) {

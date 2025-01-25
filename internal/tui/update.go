@@ -10,7 +10,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Update must have a pointer receiver if we want to mutate the same instance
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
@@ -40,11 +39,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	//---------------------------------------------------------------------------
 	case tea.KeyMsg:
 		switch msg.String() {
+
+		//-----------------------------------------------------------------------
+		// Quit
 		case "q", "ctrl+c":
 			// Save config on quit
 			config.Save(m.config)
 			return m, tea.Quit
 
+		//-----------------------------------------------------------------------
+		// Tab switching or numeric switching
 		case "1":
 			m.activeTab = cameraTab
 		case "2":
@@ -56,8 +60,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "5":
 			m.activeTab = serverTab
 
+		//-----------------------------------------------------------------------
+		// 'c': Start camera setup wizard
 		case "c":
-			// Start camera setup
 			if m.activeTab == cameraTab && m.cameraSetupStep == stepNoCameraConfigured {
 				m.cameraSetupStep = stepScanningForCameras
 				m.status = "Scanning for cameras..."
@@ -69,17 +74,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 				m.availableCameras = devices
-
 				if len(m.availableCameras) > 0 {
 					m.selectedCamera = m.availableCameras[0]
 					m.cameraSetupStep = stepSelectCamera
-					m.status = "Select a camera to configure"
+					m.status = "Select a camera to configure (↑/↓, Enter)"
 				} else {
 					m.status = "No cameras found"
 					m.cameraSetupStep = stepNoCameraConfigured
 				}
 			}
 
+		//-----------------------------------------------------------------------
+		// Arrow keys to pick a camera
 		case "up", "down":
 			if m.activeTab == cameraTab &&
 				m.cameraSetupStep == stepSelectCamera &&
@@ -98,7 +104,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					} else {
 						currentIndex--
 					}
-				} else {
+				} else { // down
 					if currentIndex >= len(m.availableCameras)-1 {
 						currentIndex = 0
 					} else {
@@ -106,61 +112,66 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				m.selectedCamera = m.availableCameras[currentIndex]
+				m.status = fmt.Sprintf("Selected: %s", m.selectedCamera.Name)
 			}
 
+		//-----------------------------------------------------------------------
+		// Enter key pressed
 		case "enter":
 			if m.activeTab == cameraTab {
 				m.addLog("INFO", fmt.Sprintf("Enter pressed, current step: %v", m.cameraSetupStep))
 
 				switch m.cameraSetupStep {
 
-				//---------------------------------------------------------------------------
+				//-------------------------------------------------------------------
+				// 1) stepSelectCamera -> open camera + stream -> stepTestCamera
 				case stepSelectCamera:
-					if m.selectedCamera.ID != "" {
-						m.addLog("INFO", "Moving from stepSelectCamera to stepTestCamera")
-
-						// Try opening the camera
-						err := m.cameraManager.OpenCamera(
-							m.selectedCamera.ID,
-							camera.StreamConfig{
-								Width:     640,
-								Height:    480,
-								Framerate: 30,
-							},
-						)
-						if err != nil {
-							m.addLog("ERROR", fmt.Sprintf("Failed to open camera: %v", err))
-							// Stay in stepSelectCamera or handle error
-							return m, nil
-						}
-						// Immdiately start our stream
-						stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera.ID)
-						if err != nil {
-							m.addLog("ERROR", fmt.Sprintf("Failed to start strea in Selected CameraID: %v", err))
-							return m, nil
-						}
-
-						go func() {
-							for frame := range stream {
-								m.server.BroadcastFrame(frame)
-							}
-							m.addLog("INFO", "Camera Stream Ended (selectCamera stop!)")
-						}()
-						m.addLog("INFO", "Camera is streaming; moving on to stepTestCamera")
-						m.cameraSetupStep = stepTestCamera
-						m.status = "Camera is streaming"
+					if m.selectedCamera.ID == "" {
+						return m, nil
 					}
+					m.addLog("INFO", "Opening camera + starting stream (selectCamera)")
+
+					// Open the camera
+					err := m.cameraManager.OpenCamera(
+						m.selectedCamera.ID,
+						camera.StreamConfig{Width: 640, Height: 480, Framerate: 30},
+					)
+					if err != nil {
+						m.addLog("ERROR", fmt.Sprintf("Failed to open camera: %v", err))
+						return m, nil
+					}
+
+					// Start the stream
+					stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera.ID)
+					if err != nil {
+						m.addLog("ERROR", fmt.Sprintf("Failed to get stream: %v", err))
+						return m, nil
+					}
+
+					go func() {
+						for frame := range stream {
+							m.server.BroadcastFrame(frame)
+						}
+						m.addLog("INFO", "Camera stream ended (stepSelectCamera -> closed)")
+					}()
+
+					// Move to testCamera
+					m.cameraSetupStep = stepTestCamera
+					m.status = "Camera is streaming; press Enter again to confirm if it looks good."
 					return m, nil
 
-				//---------------------------------------------------------------------------
+				//-------------------------------------------------------------------
+				// 2) stepTestCamera -> confirm => close camera => config -> stepComplete
 				case stepTestCamera:
+					m.addLog("INFO", "User confirmed camera is good. Finalizing setup.")
 
-					m.addLog("INFO", "User confirmed camera looks good moving to setupComplete")
+					// Close the camera to stop streaming
+					err := m.cameraManager.CloseCamera(m.selectedCamera.ID)
+					if err != nil {
+						m.addLog("ERROR", fmt.Sprintf("Failed to close camera: %v", err))
+					}
 
-					// Update our status & config
-					m.cameraSetupStep = stepComplete
-					m.status = "Configuring camera..."
-
+					// Save to config
 					m.config.CameraConfig = config.CameraConfig{
 						DeviceID:   m.selectedCamera.ID,
 						DeviceName: m.selectedCamera.Name,
@@ -169,52 +180,61 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							FPS:        30,
 						},
 					}
-					return m, nil // NEW: Return now, so the next action picks up stepComplete
+					config.Save(m.config)
+					m.addLog("INFO", "Camera config saved")
 
-				//---------------------------------------------------------------------------
+					// Move to stepComplete
+					m.cameraSetupStep = stepComplete
+					m.status = "Camera setup complete!"
+					m.cameraConfigured = true
+					return m, nil
+
+				//-------------------------------------------------------------------
+				// stepConfigureCamera (unused in this simplified flow, but kept)
 				case stepConfigureCamera:
-					// Potentially not used much, but let's keep it
 					m.cameraConfigured = true
 					m.cameraSetupStep = stepComplete
 					m.status = "Camera configured!"
 					return m, nil
 
-				//---------------------------------------------------------------------------
+				//-------------------------------------------------------------------
+				// stepComplete -> do nothing or finalize
 				case stepComplete:
-					// Save final config
-					config.Save(m.config)
-					// If camera is configured, optionally start a final stream
-					if m.cameraConfigured {
-						stream, err := m.cameraManager.GetStreamChannel(m.config.CameraConfig.DeviceID)
-						if err == nil {
-							m.addLog("INFO", "Camera is configured; starting final stream")
-							go func() {
-								for frame := range stream {
-									m.server.BroadcastFrame(frame)
-								}
-							}()
-						} else {
-							m.addLog("ERROR", fmt.Sprintf("Failed to start final stream: %v", err))
-						}
-					}
+					// We're done. Optionally start a final stream?
+					m.addLog("INFO", "Camera is already configured (stepComplete).")
 					return m, nil
 				}
-
 			}
 
+		//-----------------------------------------------------------------------
+		// 'b' to go back
 		case "b", "backspace", "esc":
-			// Let’s allow going back in camera tab
 			if m.activeTab == cameraTab {
 				switch m.cameraSetupStep {
 				case stepSelectCamera:
+					// Return to no config
 					m.cameraSetupStep = stepNoCameraConfigured
+					m.selectedCamera = camera.Device{}
+					m.availableCameras = nil
+					m.status = "Back to no camera selected"
+
+				case stepTestCamera:
+					// They want to go back to select a different camera.
+					// Close the camera if open.
+					_ = m.cameraManager.CloseCamera(m.selectedCamera.ID)
+					m.cameraSetupStep = stepSelectCamera
+					m.status = "Back to camera selection"
+
 				case stepConfigureCamera:
 					m.cameraSetupStep = stepTestCamera
+					m.status = "Back to camera test"
 				}
+				return m, nil
 			}
 
+		//-----------------------------------------------------------------------
+		// 's': Start/Stop server
 		case "s":
-			// Start/Stop server
 			if m.activeTab == serverTab {
 				if m.server.IsRunning() {
 					if err := m.server.Stop(); err != nil {
@@ -231,24 +251,32 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
+		//-----------------------------------------------------------------------
+		// 'p': Not implemented yet
 		case "p":
-			// Not implemented yet
 			if m.activeTab == serverTab {
 				// ...
 			}
 
+		//-----------------------------------------------------------------------
+		// 'r': Reset camera setup
 		case "r":
-			// Reset camera setup
-			if m.activeTab == cameraTab && m.cameraConfigured {
+			if m.activeTab == cameraTab {
+				// If camera is open, close it
+				_ = m.cameraManager.CloseCamera(m.selectedCamera.ID)
+
+				// Reset wizard
 				m.cameraSetupStep = stepNoCameraConfigured
-				m.selectedCamera.ID = ""
+				m.selectedCamera = camera.Device{}
 				m.availableCameras = []camera.Device{}
 				m.cameraConfigured = false
 				m.status = "!! Camera setup reset !!"
+				return m, nil
 			}
 
+		//-----------------------------------------------------------------------
+		// 'v': toggle verbosity
 		case "v":
-			// Toggle verbosity
 			m.verbosity++
 			if m.verbosity > VerbosityDebug {
 				m.verbosity = VerbosityError
@@ -263,8 +291,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
+		//-----------------------------------------------------------------------
+		// tab: cycle through tabs
 		case "tab":
-			// Cycle through tabs
 			m.activeTab = (m.activeTab + 1) % tabType(len(m.tabs))
 		}
 	}

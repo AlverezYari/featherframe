@@ -286,6 +286,25 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			}
+		// On "+" or "-"
+		case "+":
+			if m.activeTab == motionTab {
+				m.motionSensitivity += 0.1
+				if m.motionSensitivity > 1.0 {
+					m.motionSensitivity = 1.0
+				}
+				m.status = fmt.Sprintf("Motion sensitivity: %.1f", m.motionSensitivity)
+			}
+			return m, nil
+		case "-":
+			if m.activeTab == motionTab {
+				m.motionSensitivity -= 0.1
+				if m.motionSensitivity < 0.0 {
+					m.motionSensitivity = 0.0
+				}
+				m.status = fmt.Sprintf("Motion sensitivity: %.1f", m.motionSensitivity)
+			}
+			return m, nil
 
 		//-----------------------------------------------------------------------
 		// 's': Start/Stop server
@@ -305,7 +324,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
-
+		//-----------------------------------------------------------------------
+		// 'm': Start/Stop motion detection
+		case "m":
+			if m.activeTab == motionTab {
+				if !m.motionEnabled {
+					m.status = "Motion detection ON"
+					m.startMotionDetection()
+				} else {
+					m.status = "Motion detection OFF"
+					if m.motionStopChan != nil {
+						close(m.motionStopChan)
+					}
+				}
+				return m, nil
+			}
 		//-----------------------------------------------------------------------
 		// 'p': Not implemented yet
 		case "p":

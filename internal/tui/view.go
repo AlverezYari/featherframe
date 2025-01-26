@@ -149,7 +149,7 @@ func (m *Model) renderActiveTabContent() string {
 	case cameraTab:
 		return m.renderCameraContent()
 	case motionTab:
-		return "Motion Detection:\n• Status: Active\n• Sensitivity: Medium\n• Events Today: 0"
+		return m.renderMotionTab()
 	case classificationTab:
 		return "Bird Classification:\n• Model: Loaded\n• Detections: 0\n• Confidence Threshold: 0.8"
 	case storageTab:
@@ -237,6 +237,22 @@ func (m *Model) renderCameraContent() string {
 		)
 	}
 	return ""
+}
+
+// renderMotionTab
+func (m *Model) renderMotionTab() string {
+	var sb strings.Builder
+	sb.WriteString("Motion Detection\n\n")
+	sb.WriteString(fmt.Sprintf("Enabled: %v\n", m.motionEnabled))
+	sb.WriteString(fmt.Sprintf("Sensitivity: %.2f\n", m.motionSensitivity))
+	sb.WriteString(fmt.Sprintf("Cooldown: %v\n", m.motionCooldown))
+	sb.WriteString("\n")
+	sb.WriteString("Controls:\n")
+	sb.WriteString("  m = toggle motion on/off\n")
+	sb.WriteString("  + / - = adjust sensitivity\n")
+	sb.WriteString("  > / < = increase/decrease cooldown\n")
+	sb.WriteString("\nMotion triggers a screenshot, limited by the cooldown.\n")
+	return sb.String()
 }
 
 // renderStorageTab

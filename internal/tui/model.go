@@ -11,6 +11,10 @@ import (
 	"github.com/AlverezYari/featherframe/pkg/camera"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"gocv.io/x/gocv"
+
+	"os"
+	"path/filepath"
 )
 
 // Tabs
@@ -100,6 +104,12 @@ type Model struct {
 	selectedCamera   camera.Device
 	isStreaming      bool
 
+	// Motion
+	motionEnabled     bool
+	motionSensitivity float64
+	motionStopChan    chan struct{}
+	motionCooldown    time.Duration
+	lastCaptureTime   time.Time
 	// Storage
 	storageStep    storageSetupStep
 	storagePathBuf string // Buffer for user input
@@ -162,6 +172,13 @@ func New(configPath string, cfg *config.AppConfig) *Model {
 	// Create our cameraManager
 	cm := newCameraManager(m.logCallback)
 	m.cameraManager = cm
+
+	// Set our motion defaults
+	m.motionEnabled = false
+	m.motionSensitivity = 0.2
+	m.motionStopChan = nil
+	m.motionCooldown = 3 * time.Second
+	m.lastCaptureTime = time.Time{}
 
 	// Set our Storage
 	m.storageStep = storageStepNone
@@ -305,4 +322,101 @@ func (m *Model) addCameraMessage(msg string, isError bool) {
 	if len(m.cameraMessages) > 10 {
 		m.cameraMessages = m.cameraMessages[1:]
 	}
+}
+
+// Motion Dection helper function
+func (m *Model) startMotionDetection() {
+	if m.motionEnabled {
+		return
+	}
+	m.motionStopChan = make(chan struct{})
+	m.motionEnabled = true
+
+	go func() {
+		defer func() { m.motionEnabled = false }()
+
+		devID := m.config.CameraConfig.DeviceID
+		frameCh, err := m.cameraManager.GetStreamChannel(devID)
+		if err != nil {
+			m.addLog("ERROR", fmt.Sprintf("Motion detect stream error: %v", err))
+			return
+		}
+
+		var prevFrame []byte
+
+		for {
+			select {
+			case <-m.motionStopChan:
+				m.addLog("INFO", "Motion detection stopped.")
+				return
+
+			case frame, ok := <-frameCh:
+				if !ok {
+					m.addLog("INFO", "Motion detection stream ended.")
+					return
+				}
+
+				// Compare "frame" to "prevFrame"
+				if len(prevFrame) > 0 {
+					if motionDetected(prevFrame, frame, m.motionSensitivity) {
+						// Check cooldown
+						now := time.Now()
+						if now.Sub(m.lastCaptureTime) >= m.motionCooldown {
+							// Enough time since last capture, so take a screenshot
+							err := m.takeScreenshot()
+							if err != nil {
+								m.addLog("ERROR", fmt.Sprintf("Failed to take screenshot: %v", err))
+							} else {
+								m.addLog("INFO", "Motion detected, screenshot taken!")
+								m.lastCaptureTime = now
+							}
+						} else {
+							// Still within cooldown; skip
+							// (Optional) Log or ignore
+							// m.addLog("DEBUG", "Motion detected but still cooling down")
+						}
+					}
+				}
+				prevFrame = frame
+			}
+		}
+	}()
+}
+
+// A naive motionDetected function
+func motionDetected(prevFrame, curFrame []byte, sensitivity float64) bool {
+	matPrev, err1 := gocv.IMDecode(prevFrame, gocv.IMReadColor)
+	matCurr, err2 := gocv.IMDecode(curFrame, gocv.IMReadColor)
+	if err1 != nil || err2 != nil || matPrev.Empty() || matCurr.Empty() {
+		return false
+	}
+	defer matPrev.Close()
+	defer matCurr.Close()
+
+	diff := gocv.NewMat()
+	defer diff.Close()
+	gocv.AbsDiff(matPrev, matCurr, &diff)
+
+	sumVals := diff.Sum()
+	totalDiff := sumVals.Val1 + sumVals.Val2 + sumVals.Val3 // B+G+R
+
+	threshold := 50000.0 * (1.0 - sensitivity) // TOTALLY arbitrary
+	return totalDiff > threshold
+}
+
+// takeScreenshot
+func (m *Model) takeScreenshot() error {
+	devID := m.config.CameraConfig.DeviceID
+	frame, err := m.cameraManager.GetFrame(devID)
+	if err != nil {
+		return err
+	}
+	storePath := m.config.StoragePath
+	if storePath == "" {
+		m.addLog("WARN", "No storage path set. Skipping save.")
+		return nil
+	}
+	filename := fmt.Sprintf("motion_%s.jpg", time.Now().Format("20060102_150405"))
+	fullPath := filepath.Join(storePath, filename)
+	return os.WriteFile(fullPath, frame, 0644)
 }

@@ -1,7 +1,7 @@
 # ============================================================================
 # Stage 1: Build OpenCV
 # ============================================================================
-FROM cgr.dev/chainguard/glibc-dynamic:latest-dev AS builder-opencv
+FROM cgr.dev/chainguard/gcc-glibc:latest-dev AS builder-opencv
 
 
 
@@ -43,8 +43,10 @@ FROM cgr.dev/chainguard/go:latest-dev AS builder-go
 # so we can build GoCV. We'll copy the entire /usr/local from builder-opencv
 COPY --from=builder-opencv /usr/local /usr/local
 
+
+USER root 
 # If you need pkg-config or other dev tools in the Go build stage:
-RUN apk update && apk add pkgconfig && rm -rf /var/cache/apk/*
+RUN apk update && apk add pkgconfig && rm -rf /var/cache/apk/* 
 
 # We specify CGO_ENABLED so that cgo is used
 ENV CGO_ENABLED=1
@@ -52,7 +54,7 @@ ENV GOCV_VERSION="v0.40.0"
 
 # (1) Install gocv so it compiles and links against the newly copied OpenCV.
 #     This effectively compiles the Go wrappers for OpenCV.
-RUN go install gocv.io/x/gocv@$GOCV_VERSION
+RUN go install gocv.io/x/gocv@$GOCV_VERSION 
 
 # (2) Build your own Go app
 WORKDIR /app

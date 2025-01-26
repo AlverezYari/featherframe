@@ -40,7 +40,7 @@ RUN mkdir -p /tmp/opencv/build && cd /tmp/opencv/build && \
 # ============================================================================
 # Stage 2: Build Go Application (using gocv)
 # ============================================================================
-FROM cgr.dev/chainguard/go:1.20 AS builder-go
+FROM cgr.dev/chainguard/go:latest AS builder-go
 
 # We'll need the OpenCV libraries and headers from stage 1
 # so we can build GoCV. We'll copy the entire /usr/local from builder-opencv

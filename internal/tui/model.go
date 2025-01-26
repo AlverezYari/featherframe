@@ -160,7 +160,7 @@ func New(configPath string, cfg *config.AppConfig) *Model {
 	m.logViewport = vp
 
 	// Start the server
-	m.server = server.New(cfg.ServerPort, m.logCallback)
+	m.server = server.New(cfg.ServerPort, m.logCallback, m.cameraManager, cfg.CameraConfig.DeviceID)
 	if err := m.server.Start(); err != nil {
 		m.flushLogImmediately("ERROR", fmt.Sprintf("Error starting server: %v", err))
 	}

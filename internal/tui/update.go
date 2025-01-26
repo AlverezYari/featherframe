@@ -15,14 +15,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	//---------------------------------------------------------------------------
 	case tea.WindowSizeMsg:
-		// Keep track of app size
 		m.width = msg.Width
 		m.height = msg.Height
-
-		// Adjust logging viewport
+		// Re-adjust the logging viewport
 		m.logViewport.Width = msg.Width - 3
 		m.logViewport.Height = 10
-		// Refresh its content from m.logs
+		// Refresh logs
 		m.logViewport.SetContent(strings.Join(m.logs, "\n"))
 		return m, nil
 
@@ -33,7 +31,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	//---------------------------------------------------------------------------
 	case logUpdateMsg:
-		// The logs were just flushed, so re-render with no extra side effects
+		// The logs were just flushed, so re-render with no side effects
 		return m, nil
 
 	//---------------------------------------------------------------------------
@@ -43,7 +41,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		//-----------------------------------------------------------------------
 		// Quit
 		case "q", "ctrl+c":
-			// Save config on quit
 			config.Save(m.config)
 			return m, tea.Quit
 
@@ -129,7 +126,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.selectedCamera.ID == "" {
 						return m, nil
 					}
-					m.addLog("INFO", "Opening camera + starting stream (selectCamera)")
+					m.addLog("INFO", "Attempting to open camera + start stream (selectCamera)")
+
+					// NEW: If we previously had a camera open, close it first
+					// so we don't get a "file busy" error
+					if m.cameraConfigured {
+						m.addLog("DEBUG", "Closing any previously open camera before re-opening.")
+						_ = m.cameraManager.CloseCamera(m.selectedCamera.ID)
+					}
 
 					// Open the camera
 					err := m.cameraManager.OpenCamera(
@@ -138,6 +142,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					)
 					if err != nil {
 						m.addLog("ERROR", fmt.Sprintf("Failed to open camera: %v", err))
+						// Set user-friendly status + revert to stepSelectCamera for retry
+						m.status = fmt.Sprintf("Error opening %s. Use arrow keys, press Enter to retry or 'b' to go back", m.selectedCamera.ID)
+						m.cameraSetupStep = stepSelectCamera
 						return m, nil
 					}
 
@@ -145,9 +152,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera.ID)
 					if err != nil {
 						m.addLog("ERROR", fmt.Sprintf("Failed to get stream: %v", err))
+						// Also revert
+						m.status = fmt.Sprintf("Failed to get stream for %s. Press Enter to retry or 'b' to go back", m.selectedCamera.ID)
+						m.cameraSetupStep = stepSelectCamera
 						return m, nil
 					}
 
+					// Actually reading frames in background
 					go func() {
 						for frame := range stream {
 							m.server.BroadcastFrame(frame)
@@ -190,7 +201,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 
 				//-------------------------------------------------------------------
-				// stepConfigureCamera (unused in this simplified flow, but kept)
 				case stepConfigureCamera:
 					m.cameraConfigured = true
 					m.cameraSetupStep = stepComplete
@@ -200,7 +210,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				//-------------------------------------------------------------------
 				// stepComplete -> do nothing or finalize
 				case stepComplete:
-					// We're done. Optionally start a final stream?
 					m.addLog("INFO", "Camera is already configured (stepComplete).")
 					return m, nil
 				}
@@ -219,8 +228,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.status = "Back to no camera selected"
 
 				case stepTestCamera:
-					// They want to go back to select a different camera.
-					// Close the camera if open.
+					// They want to pick a different camera, or re-try
 					_ = m.cameraManager.CloseCamera(m.selectedCamera.ID)
 					m.cameraSetupStep = stepSelectCamera
 					m.status = "Back to camera selection"
@@ -297,5 +305,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeTab = (m.activeTab + 1) % tabType(len(m.tabs))
 		}
 	}
+
 	return m, nil
 }

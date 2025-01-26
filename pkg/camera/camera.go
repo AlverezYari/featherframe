@@ -46,6 +46,7 @@ type CameraManager interface {
 	StartStream(deviceID string) error
 	StopStream(deviceID string) error
 	IsStreaming(deviceID string) bool
+	GetFrame(deviceID string) ([]byte, error)
 
 	// Stream access
 	GetStreamChannel(deviceID string) (<-chan []byte, error)

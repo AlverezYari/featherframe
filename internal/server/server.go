@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AlverezYari/featherframe/pkg/camera"
 	"github.com/gorilla/websocket"
 )
 
@@ -18,18 +19,25 @@ type LogEntry struct {
 }
 
 type Server struct {
-	server          *http.Server
-	port            string
-	isRunning       bool
-	logBuffer       []LogEntry
-	logMutex        sync.RWMutex
-	upgrader        websocket.Upgrader
-	wsConnections   map[*websocket.Conn]bool
-	wsConnectionsMu sync.RWMutex
-	logCallback     func(level, message string) // Callback for forwarding logs
+	server           *http.Server
+	port             string
+	isRunning        bool
+	logBuffer        []LogEntry
+	logMutex         sync.RWMutex
+	upgrader         websocket.Upgrader
+	wsConnections    map[*websocket.Conn]bool
+	wsConnectionsMu  sync.RWMutex
+	logCallback      func(level, message string) // Callback for forwarding logs
+	cameraManager    camera.CameraManager
+	configuredDevice string
 }
 
-func New(port string, logCallback func(level, message string)) *Server {
+func New(
+	port string,
+	logCallback func(level, message string),
+	cameraManager camera.CameraManager,
+	deviceID string,
+) *Server {
 	return &Server{
 		port:        port,
 		logBuffer:   make([]LogEntry, 0, 100),
@@ -37,7 +45,9 @@ func New(port string, logCallback func(level, message string)) *Server {
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
-		wsConnections: make(map[*websocket.Conn]bool),
+		wsConnections:    make(map[*websocket.Conn]bool),
+		cameraManager:    cameraManager,
+		configuredDevice: deviceID, // store the camera device
 	}
 }
 
@@ -77,6 +87,9 @@ func (s *Server) Start() error {
 		tmpl.Execute(w, nil)
 	})
 
+	mux.HandleFunc("/api/screenshot", s.handleScreenshot)
+
+	// Build and start the HTTP server
 	s.server = &http.Server{
 		Addr:    ":" + s.port,
 		Handler: mux,
@@ -92,6 +105,26 @@ func (s *Server) Start() error {
 	s.isRunning = true
 	s.addLog("INFO", fmt.Sprintf("Server is running on port %s", s.port))
 	return nil
+}
+
+func (s *Server) handleScreenshot(w http.ResponseWriter, r *http.Request) {
+	if s.configuredDevice == "" {
+		s.addLog("ERROR", "No camera configured for screenshot.")
+		http.Error(w, "No camera configured", http.StatusBadRequest)
+		return
+	}
+
+	// Attempt to get a single frame
+	frame, err := s.cameraManager.GetFrame(s.configuredDevice)
+	if err != nil {
+		s.addLog("ERROR", fmt.Sprintf("Screenshot error: %v", err))
+		http.Error(w, "Failed to capture screenshot", http.StatusInternalServerError)
+		return
+	}
+
+	// Serve it as JPEG bytes
+	w.Header().Set("Content-Type", "image/jpeg")
+	_, _ = w.Write(frame) // ignore error for brevity
 }
 
 func (s *Server) Stop() error {

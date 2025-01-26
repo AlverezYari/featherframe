@@ -244,10 +244,12 @@ func (l *LinuxCameraManager) GetStreamChannel(deviceID string) (<-chan []byte, e
 				return
 			}
 
-			// Read frame
-			if ok := cap.Read(&img); !ok {
-				l.logMsg("ERROR", "Failed to read frame from %s", deviceID)
-				return
+			// Attempt to read a frame
+			if ok := cap.Read(&img); !ok || img.Empty() {
+				l.logMsg("ERROR", "Failed to read frame from %s; continuing...", deviceID)
+				// Sleep briefly, then keep going; don't fully kill the stream
+				time.Sleep(100 * time.Millisecond)
+				continue
 			}
 
 			// Encode as JPEG

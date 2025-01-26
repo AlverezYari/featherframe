@@ -35,4 +35,4 @@ jobs:
           platforms: linux/arm64,linux/amd64
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/AlverezYari/featherframe:develop
+          tags: ghcr.io/alverezyari/featherframe:develop

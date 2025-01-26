@@ -29,6 +29,16 @@ type tab struct {
 	id    tabType
 }
 
+// Storage
+
+type storageSetupStep int
+
+const (
+	storageStepNone storageSetupStep = iota
+	storageStepEnterPath
+	storageStepConfirmed
+)
+
 // Verbosity
 type Verbosity int
 
@@ -90,6 +100,10 @@ type Model struct {
 	selectedCamera   camera.Device
 	isStreaming      bool
 
+	// Storage
+	storageStep    storageSetupStep
+	storagePathBuf string // Buffer for user input
+
 	// Logging / Verbosity
 	logViewport   viewport.Model
 	logs          []string // Lines actually displayed
@@ -149,6 +163,10 @@ func New(configPath string, cfg *config.AppConfig) *Model {
 	cm := newCameraManager(m.logCallback)
 	m.cameraManager = cm
 
+	// Set our Storage
+	m.storageStep = storageStepNone
+	m.storagePathBuf = ""
+
 	m.verbosity = VerbosityInfo
 
 	vp := viewport.New(0, 10)
@@ -160,7 +178,7 @@ func New(configPath string, cfg *config.AppConfig) *Model {
 	m.logViewport = vp
 
 	// Start the server
-	m.server = server.New(cfg.ServerPort, m.logCallback, m.cameraManager, cfg.CameraConfig.DeviceID)
+	m.server = server.New(cfg.ServerPort, m.logCallback, m.cameraManager, cfg.CameraConfig.DeviceID, cfg)
 	if err := m.server.Start(); err != nil {
 		m.flushLogImmediately("ERROR", fmt.Sprintf("Error starting server: %v", err))
 	}

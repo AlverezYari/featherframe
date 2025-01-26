@@ -34,8 +34,35 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// The logs were just flushed, so re-render with no side effects
 		return m, nil
 
-	//---------------------------------------------------------------------------
+		//---------------------------------------------------------------------------
+	// case tea.KeyMsg:
+	// 	switch msg.Type {
+	// 	case tea.KeyRunes:
+	// 		// If we are entering storage path, append typed runes
+	// 		if m.activeTab == storageTab && m.storageStep == storageStepEnterPath {
+	// 			m.storagePathBuf += string(msg.Runes)
+	// 		}
+	// 	case tea.KeyBackspace:
+	// 		if m.activeTab == storageTab && m.storageStep == storageStepEnterPath && len(m.storagePathBuf) > 0 {
+	// 			// remove last character
+	// 			m.storagePathBuf = m.storagePathBuf[:len(m.storagePathBuf)-1]
+	// 		}
+	// 	}
+
 	case tea.KeyMsg:
+
+		switch msg.Type {
+		case tea.KeyRunes:
+			// If we are entering storage path, append typed runes
+			if m.activeTab == storageTab && m.storageStep == storageStepEnterPath {
+				m.storagePathBuf += string(msg.Runes)
+			}
+		case tea.KeyBackspace:
+			if m.activeTab == storageTab && m.storageStep == storageStepEnterPath && len(m.storagePathBuf) > 0 {
+				// remove last character
+				m.storagePathBuf = m.storagePathBuf[:len(m.storagePathBuf)-1]
+			}
+		}
 		switch msg.String() {
 
 		//-----------------------------------------------------------------------
@@ -81,6 +108,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
+			if m.activeTab == storageTab && m.storageStep == storageStepNone {
+				m.status = "Enter storage path (press Enter to save)"
+				m.storageStep = storageStepEnterPath
+				m.storagePathBuf = ""
+			}
+
 		//-----------------------------------------------------------------------
 		// Arrow keys to pick a camera
 		case "up", "down":
@@ -115,6 +148,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		//-----------------------------------------------------------------------
 		// Enter key pressed
 		case "enter":
+			if m.activeTab == storageTab && m.storageStep == storageStepEnterPath {
+				if m.storagePathBuf == "" {
+					m.status = "Storage path cannot be empty"
+				} else {
+					m.config.StoragePath = m.storagePathBuf
+					if err := config.Save(m.config); err != nil {
+						m.status = fmt.Sprintf("Error saving config: %v", err)
+					} else {
+						m.status = fmt.Sprintf("Storage path set to %s", m.storagePathBuf)
+					}
+					m.storageStep = storageStepConfirmed
+				}
+				return m, nil
+			}
 			if m.activeTab == cameraTab {
 				m.addLog("INFO", fmt.Sprintf("Enter pressed, current step: %v", m.cameraSetupStep))
 

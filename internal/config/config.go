@@ -24,6 +24,7 @@ type AppConfig struct {
 	ServerPort   string       `json:"server_port"`
 	ServerIP     string       `json:"server_ip"`
 	CameraConfig CameraConfig `json:"camera"`
+	StoragePath  string       `json:"storage_path"`
 }
 
 // Default config
@@ -36,8 +37,9 @@ func defaultConfig() *AppConfig {
 				Resolution: "640x480",
 				FPS:        30,
 			}},
-		ServerIP:   "localhost",
-		ServerPort: "8080",
+		ServerIP:    "localhost",
+		ServerPort:  "8080",
+		StoragePath: "",
 	}
 }
 

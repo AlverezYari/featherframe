@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/AlverezYari/featherframe/internal/config"
 	"github.com/AlverezYari/featherframe/pkg/camera"
 	"github.com/gorilla/websocket"
 )
@@ -30,6 +33,7 @@ type Server struct {
 	logCallback      func(level, message string) // Callback for forwarding logs
 	cameraManager    camera.CameraManager
 	configuredDevice string
+	appConfig        *config.AppConfig
 }
 
 func New(
@@ -37,6 +41,7 @@ func New(
 	logCallback func(level, message string),
 	cameraManager camera.CameraManager,
 	deviceID string,
+	appConfig *config.AppConfig,
 ) *Server {
 	return &Server{
 		port:        port,
@@ -48,6 +53,7 @@ func New(
 		wsConnections:    make(map[*websocket.Conn]bool),
 		cameraManager:    cameraManager,
 		configuredDevice: deviceID, // store the camera device
+		appConfig:        appConfig,
 	}
 }
 
@@ -113,18 +119,30 @@ func (s *Server) handleScreenshot(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No camera configured", http.StatusBadRequest)
 		return
 	}
-
-	// Attempt to get a single frame
 	frame, err := s.cameraManager.GetFrame(s.configuredDevice)
 	if err != nil {
 		s.addLog("ERROR", fmt.Sprintf("Screenshot error: %v", err))
 		http.Error(w, "Failed to capture screenshot", http.StatusInternalServerError)
 		return
 	}
-
-	// Serve it as JPEG bytes
+	// ALWAYS return the image
 	w.Header().Set("Content-Type", "image/jpeg")
-	_, _ = w.Write(frame) // ignore error for brevity
+	_, _ = w.Write(frame)
+
+	// OPTIONAL: Also save it locally
+	storagePath := s.appConfig.StoragePath //
+	if storagePath != "" {
+		// e.g. /home/pi/birdcaptures or something
+		nowStr := time.Now().Format("20060102_150405")
+		filename := filepath.Join(storagePath, fmt.Sprintf("screenshot_%s.jpg", nowStr))
+
+		err = os.WriteFile(filename, frame, 0644)
+		if err != nil {
+			s.addLog("ERROR", fmt.Sprintf("Failed to save screenshot to %s: %v", filename, err))
+		} else {
+			s.addLog("INFO", fmt.Sprintf("Screenshot saved to %s", filename))
+		}
+	}
 }
 
 func (s *Server) Stop() error {

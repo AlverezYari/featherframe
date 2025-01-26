@@ -153,7 +153,7 @@ func (m *Model) renderActiveTabContent() string {
 	case classificationTab:
 		return "Bird Classification:\n• Model: Loaded\n• Detections: 0\n• Confidence Threshold: 0.8"
 	case storageTab:
-		return "Storage Status:\n• Path: /home/pi/birdwatcher\n• Total: 100GB\n• Used: 10GB\n• Free: 90GB"
+		return m.renderStorageTab()
 	case serverTab:
 		status := "Stopped"
 		if m.server.IsRunning() {
@@ -237,4 +237,26 @@ func (m *Model) renderCameraContent() string {
 		)
 	}
 	return ""
+}
+
+// renderStorageTab
+func (m *Model) renderStorageTab() string {
+	switch m.storageStep {
+	case storageStepNone:
+		return "Storage Setup:\n" +
+			"Path: " + m.config.StoragePath + "\n" +
+			"Press 'c' to configure a new path."
+
+	case storageStepEnterPath:
+		return "Enter a storage path:\n" +
+			"> " + m.storagePathBuf + "\n" +
+			"(Press Enter when done, or Backspace to edit)"
+
+	case storageStepConfirmed:
+		return "Storage Path: " + m.config.StoragePath + "\n" +
+			"Press 'c' to change it again if you like."
+
+	default:
+		return "Unknown storage wizard state."
+	}
 }

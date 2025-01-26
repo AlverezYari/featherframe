@@ -1,7 +1,9 @@
 # ============================================================================
 # Stage 1: Build OpenCV
 # ============================================================================
-FROM cgr.dev/chainguard/cplusplus:latest AS builder-opencv
+FROM cgr.dev/chainguard/gcc-glibc:latest AS builder-opencv
+
+
 
 # The Chainguard c++ image has a Wolfi-based environment with clang, make, cmake, etc.
 # Wolfi uses "apk" but it's not the Alpine version; it’s "apk-like" for Wolfi. 

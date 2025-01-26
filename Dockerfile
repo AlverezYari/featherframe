@@ -13,6 +13,8 @@ FROM cgr.dev/chainguard/glibc-dynamic:latest-dev AS builder-opencv
 
 WORKDIR /tmp
 
+
+USER root
 # (1) Install additional packages to build OpenCV
 RUN apk update && apk add \
     cmake 

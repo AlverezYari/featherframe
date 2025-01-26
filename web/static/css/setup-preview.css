@@ -1,0 +1,17 @@
+/* web/static/css/setup-preview.css */
+.preview-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+#camera-feed {
+    width: 100%;
+    border: 1px solid #ccc;
+}
+
+.status {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f0f0f0;
+}

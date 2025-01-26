@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Live Monitoring</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0; padding: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: start;
+      min-height: 100vh;
+      background-color: #f4f4f9;
+    }
+    h1 {
+      margin-top: 20px;
+      color: #333;
+    }
+    #live-feed {
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      max-width: 90%;
+      max-height: 60vh;
+      object-fit: cover;
+    }
+    #screenshotPreview {
+      margin-top: 20px;
+      max-width: 400px;
+      border: 1px solid #aaa;
+      border-radius: 4px;
+    }
+    .status {
+      margin-top: 10px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <h1>Live Monitoring</h1>
+
+  <!-- Live Camera Feed via WebSocket -->
+  <img id="live-feed" alt="Live Camera Feed" />
+  <div class="status" id="status">Connecting to camera...</div>
+
+  <!-- Button & Preview for Screenshot -->
+  <button id="screenshotBtn">Take a Photo!</button>
+  <img id="screenshotPreview" src="" alt="Screenshot will appear here" />
+
+  <!-- Load our external JS at the bottom -->
+  <script src="/static/js/live-monitor.js"></script>
+</body>
+</html>
+

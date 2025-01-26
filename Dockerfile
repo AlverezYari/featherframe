@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------
 # Stage 1: Build Environment
 # -----------------------------------------------------------------------------
-FROM cgr.dev/chainguard/go:1.20 AS builder
+FROM cgr.dev/chainguard/go:latest AS builder
 
 # Install packages needed to build OpenCV
 # This is fairly minimal, but might still be large. 

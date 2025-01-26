@@ -33,6 +33,6 @@ jobs:
         with:
           context: .
           platforms: linux/arm64,linux/amd64
-          file: ./Dockerfile
+          file: ./Dockerfile.build
           push: true
-          tags: ghcr.io/alverezyari/featherframe:develop
+          tags: ghcr.io/alverezyari/featherframe:build

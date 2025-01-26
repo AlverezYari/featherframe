@@ -1,7 +1,7 @@
 # ============================================================================
 # Stage 1: Build OpenCV
 # ============================================================================
-FROM cgr.dev/chainguard/gcc-glibc:latest AS builder-opencv
+FROM cgr.dev/chainguard/glibc-dynamic:latest-dev AS builder-opencv
 
 
 

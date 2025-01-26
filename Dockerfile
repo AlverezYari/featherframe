@@ -15,12 +15,7 @@ WORKDIR /tmp
 
 # (1) Install additional packages to build OpenCV
 RUN apk update && apk add \
-    git \
-    libjpeg-turbo-dev \
-    libpng-dev \
-    zlib-dev \
-    # Possibly more if needed: e.g., tiff-dev, ffmpeg-dev, etc.
-    && rm -rf /var/cache/apk/* 
+    cmake \
 
 # (2) Clone OpenCV (v4.7.0) and optionally opencv_contrib if needed
 RUN git clone --depth 1 --branch 4.7.0 https://github.com/opencv/opencv.git

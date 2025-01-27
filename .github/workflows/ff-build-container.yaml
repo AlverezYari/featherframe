@@ -1,13 +1,16 @@
 name: Build and Push Container - Develop
 
+
+
 on:
   workflow_dispatch:
   push:
     branches: [ "develop" ]
 
+
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Check out code

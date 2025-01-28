@@ -1,49 +1,54 @@
-# =============================================================================
-# Stage 1: Builder - use your pre-built OpenCV image + a Go dev environment
-# =============================================================================
-# We'll start FROM your prebuilt image with OpenCV:
+# -----------------------------------------------------------------------------
+# Stage 1: Copy OpenCV libs from your prebuilt image
+# -----------------------------------------------------------------------------
+# This image "ghcr.io/alverezyari/featherframe:build" is the one that already
+# has OpenCV installed at /usr/local from your previous workflow.
 FROM ghcr.io/alverezyari/featherframe:build AS opencv-libs
 
-# That image presumably has OpenCV in /usr/local
-# plus compilers if you need them.
-
-# If you need a separate Go environment, you can either:
-#   1) Install Go into this same image
-#   2) Or create a second stage with cgr.dev/chainguard/go:latest-dev
-# 
-# Let's demonstrate the second approach (multi-stage) to keep things tidy.
-
+# -----------------------------------------------------------------------------
+# Stage 2: Build your Go app (which depends on gocv / OpenCV)
+# -----------------------------------------------------------------------------
 FROM cgr.dev/chainguard/go:latest-dev AS builder-go
 
+# Switch to root if needed to install packages (pkgconfig, git, etc.)
 USER root
+RUN apk update && apk add \
+    pkgconfig \
+    git \
+    && rm -rf /var/cache/apk/*
 
+# Enable CGO (required for gocv/OpenCV)
 ENV CGO_ENABLED=1
-ENV GOCV_VERSION="v0.40.0"
 
-# Copy the OpenCV libs from your pre-built opencv-libs image
+# Copy the OpenCV libraries from the prebuilt image into this builder,
+# so that the Go compiler + cgo can link against them.
 COPY --from=opencv-libs /usr/local /usr/local
 
-# Now install gocv (which links to the copied OpenCV libs in /usr/local)
-RUN go install gocv.io/x/gocv@$GOCV_VERSION
-
-# Build your application
+# Create and switch to our build directory
 WORKDIR /app
-COPY . .   # copy your source
-RUN go mod tidy
+
+# First copy go.mod / go.sum so we can cache dependency downloads
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Now copy the rest of your source code
+COPY . .
+
+# Build your Go executable (which should import "gocv.io/x/gocv")
 RUN go build -o /tmp/feather-finder .
 
-# =============================================================================
-# Stage 2: Minimal runtime
-# =============================================================================
+# -----------------------------------------------------------------------------
+# Stage 3: Minimal runtime image
+# -----------------------------------------------------------------------------
 FROM cgr.dev/chainguard/glibc-dynamic:latest AS runtime
 
-# Copy the OpenCV libraries from your opencv-libs stage
+# Copy the OpenCV libraries from the prebuilt image
 COPY --from=opencv-libs /usr/local /usr/local
 
-# Copy your final compiled app from the builder-go stage
+# Copy your compiled Go binary from the builder
 COPY --from=builder-go /tmp/feather-finder /usr/local/bin/feather-finder
 
-# Let the loader find the libraries
+# Make sure the loader can see the OpenCV .so libs
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
 ENTRYPOINT ["/usr/local/bin/feather-finder"]

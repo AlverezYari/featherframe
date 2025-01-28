@@ -13,10 +13,14 @@ RUN apk update && apk add \
     pkgconf \
     && rm -rf /var/cache/apk/*
 
+
+ENV CGO_ENABLED=1 
+
+ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
+
 # Copy the OpenCV libraries from the prebuilt image
 COPY --from=opencv-libs /usr/local /usr/local
 
-ENV CGO_ENABLED=1
 
 WORKDIR /app
 

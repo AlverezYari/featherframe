@@ -29,7 +29,8 @@ COPY . .
 
 # Build your main Go application
 # If your main package is in the root directory (i.e., .)
-RUN go build -o /tmp/feather-finder .
+RUN go build -o /tmp/feather-finder cmd/featherframe/main.go
+
 
 # -----------------------------------------------------------------------------
 # Stage 3: Minimal runtime

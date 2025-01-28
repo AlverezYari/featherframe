@@ -1,6 +1,4 @@
-name: Build and Push Container - Develop
-
-
+name: Build and Push Final App
 
 on:
   workflow_dispatch:
@@ -14,7 +12,6 @@ permissions:
 jobs:
   build-and-push:
     runs-on: self-hosted
-
     steps:
       - name: Check out code
         uses: actions/checkout@v3
@@ -34,11 +31,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push
+      - name: Build and Push Final
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/arm64,linux/amd64
-          file: ./Dockerfile.build
+          platforms: linux/amd64,linux/arm64
+          file: ./Dockerfile
           push: true
-          tags: ghcr.io/alverezyari/featherframe:build
+          tags: ghcr.io/alverezyari/featherframe:latest

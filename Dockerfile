@@ -13,8 +13,7 @@ FROM cgr.dev/chainguard/go:latest-dev AS builder-go
 # Switch to root if needed to install packages (pkgconfig, git, etc.)
 USER root
 RUN apk update && apk add \
-    pkgconfig \
-    git \
+    pkgconf \
     && rm -rf /var/cache/apk/*
 
 # Enable CGO (required for gocv/OpenCV)

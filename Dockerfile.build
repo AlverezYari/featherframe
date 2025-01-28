@@ -30,6 +30,7 @@ RUN mkdir -p /tmp/opencv/build && cd /tmp/opencv/build && \
       -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib/modules \
       -D BUILD_SHARED_LIBS=ON \
       -D CMAKE_INSTALL_PREFIX=/usr/local \
+      -D OPENCV_GENERATE_PKGCONFIG=ON \
       ../ && \
     make -j$(nproc) && \
     make install 

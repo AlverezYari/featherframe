@@ -196,7 +196,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 
 					// Start the stream
-					stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera.ID)
+					stream, err := m.cameraManager.GetStreamChannel(m.selectedCamera.ID, m.config.CameraConfig.StreamConfig.FPS)
 					if err != nil {
 						m.addLog("ERROR", fmt.Sprintf("Failed to get stream: %v", err))
 						// Also revert

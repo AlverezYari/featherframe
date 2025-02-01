@@ -25,6 +25,7 @@ type AppConfig struct {
 	ServerIP     string       `json:"server_ip"`
 	CameraConfig CameraConfig `json:"camera"`
 	StoragePath  string       `json:"storage_path"`
+	Headless     bool         `json:"headless"`
 }
 
 // Default config
@@ -40,6 +41,7 @@ func defaultConfig() *AppConfig {
 		ServerIP:    "localhost",
 		ServerPort:  "8080",
 		StoragePath: "",
+		Headless:    false,
 	}
 }
 

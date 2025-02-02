@@ -20,8 +20,8 @@ RUN apk update && apk add \
     cmake 
 
 # (2) Clone OpenCV (v4.7.0) and optionally opencv_contrib if needed
-RUN git clone --depth 1 --branch 4.7.0 https://github.com/opencv/opencv.git
-RUN git clone --depth 1 --branch 4.7.0 https://github.com/opencv/opencv_contrib.git 
+RUN git clone --depth 1 --branch 4.10.0 https://github.com/opencv/opencv.git
+RUN git clone --depth 1 --branch 4.10.0 https://github.com/opencv/opencv_contrib.git 
 
 # (3) Build OpenCV
 RUN mkdir -p /tmp/opencv/build && cd /tmp/opencv/build && \
@@ -30,6 +30,7 @@ RUN mkdir -p /tmp/opencv/build && cd /tmp/opencv/build && \
       -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib/modules \
       -D BUILD_SHARED_LIBS=ON \
       -D CMAKE_INSTALL_PREFIX=/usr/local \
+      -D OPENCV_GENERATE_PKGCONFIG=ON \
       ../ && \
     make -j$(nproc) && \
     make install 

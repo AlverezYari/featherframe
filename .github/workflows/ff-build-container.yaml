@@ -4,8 +4,6 @@ name: Build and Push Container - Develop
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ "develop" ]
 
 permissions:
   contents: read

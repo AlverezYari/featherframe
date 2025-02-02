@@ -104,6 +104,10 @@ func (l *LinuxCameraManager) OpenCamera(deviceID string, cfg StreamConfig) error
 		return fmt.Errorf("cannot open camera %s: %v", deviceID, err)
 	}
 
+	// Force MJPEG
+	fourcc := int('M') | int('J')<<8 | int('P')<<16 | int('G')<<24
+	cap.Set(gocv.VideoCaptureFOURCC, float64(fourcc))
+
 	cap.Set(gocv.VideoCaptureFrameWidth, float64(cfg.Width))
 	cap.Set(gocv.VideoCaptureFrameHeight, float64(cfg.Height))
 	cap.Set(gocv.VideoCaptureFPS, float64(cfg.Framerate))
@@ -188,7 +192,7 @@ func (l *LinuxCameraManager) GetFrame(deviceID string) ([]byte, error) {
 }
 
 // GetStreamChannel spawns a goroutine reading frames until done-ch is closed
-func (l *LinuxCameraManager) GetStreamChannel(deviceID string) (<-chan []byte, error) {
+func (l *LinuxCameraManager) GetStreamChannel(deviceID string, desiredFPS int) (<-chan []byte, error) {
 	l.logMsg("INFO", "Starting stream for camera %s", deviceID)
 
 	cap, exists := l.openDevices[deviceID]
@@ -224,11 +228,11 @@ func (l *LinuxCameraManager) GetStreamChannel(deviceID string) (<-chan []byte, e
 		l.logMsg("INFO", "Starting frame capture loop for %s", deviceID)
 
 		// Simple fps-limiter
-		fps := 30
-		frameDuration := time.Second / time.Duration(fps)
+		// fps := desiredFPS
+		// frameDuration := time.Second / time.Duration(fps)
 
 		for {
-			start := time.Now()
+			/* 			start := time.Now() */
 
 			select {
 			case <-done:
@@ -268,11 +272,11 @@ func (l *LinuxCameraManager) GetStreamChannel(deviceID string) (<-chan []byte, e
 				l.logMsg("DEBUG", "Dropping a frame for %s because the channel is full", deviceID)
 			}
 
-			// Enforce ~30 fps
-			elapsed := time.Since(start)
-			if elapsed < frameDuration {
-				time.Sleep(frameDuration - elapsed)
-			}
+			// // Enforce ~30 fps
+			// elapsed := time.Since(start)
+			// if elapsed < frameDuration {
+			// 	time.Sleep(frameDuration - elapsed)
+			// }
 		}
 	}()
 

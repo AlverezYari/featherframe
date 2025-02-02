@@ -215,7 +215,7 @@ func New(configPath string, cfg *config.AppConfig) *Model {
 			m.flushLogImmediately("ERROR",
 				fmt.Sprintf("Error opening camera on startup: %v", err))
 		} else {
-			ch, err2 := m.cameraManager.GetStreamChannel(cfg.CameraConfig.DeviceID)
+			ch, err2 := m.cameraManager.GetStreamChannel(cfg.CameraConfig.DeviceID, cfg.CameraConfig.StreamConfig.FPS)
 			if err2 != nil {
 				m.flushLogImmediately("ERROR",
 					fmt.Sprintf("Error starting stream on startup: %v", err2))
@@ -336,7 +336,7 @@ func (m *Model) startMotionDetection() {
 		defer func() { m.motionEnabled = false }()
 
 		devID := m.config.CameraConfig.DeviceID
-		frameCh, err := m.cameraManager.GetStreamChannel(devID)
+		frameCh, err := m.cameraManager.GetStreamChannel(devID, m.config.CameraConfig.StreamConfig.FPS)
 		if err != nil {
 			m.addLog("ERROR", fmt.Sprintf("Motion detect stream error: %v", err))
 			return

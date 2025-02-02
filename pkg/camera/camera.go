@@ -49,7 +49,7 @@ type CameraManager interface {
 	GetFrame(deviceID string) ([]byte, error)
 
 	// Stream access
-	GetStreamChannel(deviceID string) (<-chan []byte, error)
+	GetStreamChannel(deviceID string, desiredFPS int) (<-chan []byte, error)
 
 	// Logging
 	SetLoggerCallback(func(level, message string))

@@ -197,7 +197,7 @@ func (d *DarwinCameraManager) IsStreaming(deviceID string) bool {
 	return false
 }
 
-func (d *DarwinCameraManager) GetStreamChannel(deviceID string) (<-chan []byte, error) {
+func (d *DarwinCameraManager) GetStreamChannel(deviceID string, desiredFPS int) (<-chan []byte, error) {
 	d.logger.Printf("Starting stream for camera %s", deviceID)
 	cap, exists := d.openDevices[deviceID]
 	if !exists {

@@ -29,14 +29,25 @@ func main() {
 		os.Exit(1)
 	}
 
-	p := tea.NewProgram(
-		tui.New(configPath, config),
-		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(),
-	)
+	// check and launch app in the correct mode TUI/headless
 
-	if _, err := p.Run(); err != nil {
-		fmt.Printf("Error running program: %v", err)
-		os.Exit(1)
+	if config.Headless {
+		// start app in headless mode
+		//
+		fmt.Println("Starting app in headless mode!")
+
+	} else {
+		// start app in tui mode
+
+		p := tea.NewProgram(
+			tui.New(configPath, config),
+			tea.WithAltScreen(),
+			tea.WithMouseCellMotion(),
+		)
+
+		if _, err := p.Run(); err != nil {
+			fmt.Printf("Error running program: %v", err)
+			os.Exit(1)
+		}
 	}
 }

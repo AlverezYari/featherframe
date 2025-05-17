@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/AlverezYari/featherframe/internal/config"
+	"github.com/AlverezYari/featherframe/internal/detector"
 	"github.com/AlverezYari/featherframe/internal/logging"
 	"github.com/AlverezYari/featherframe/internal/server"
 	"github.com/AlverezYari/featherframe/pkg/camera"

@@ -16,14 +16,7 @@ To enable headless mode set `"headless": true` in the config file.
 
 ## Container Usage
 
-A Dockerfile is provided so the application can be built for multiple
-architectures. To create a container for amd64 and arm64 (suitable for
-Raspberry Pi 4 and similar devices) run:
-
-```bash
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -t ghcr.io/alverezyari/featherframe:latest .
-```
+Use Docker Buildx to produce multi-architecture images. Example:
 
 Bind mount `/dev/video0` and expose the configured port.
 

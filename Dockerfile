@@ -11,9 +11,6 @@ FROM --platform=$BUILDPLATFORM cgr.dev/chainguard/go:latest-dev AS builder-go
 ARG TARGETPLATFORM
 RUN echo "Building for $TARGETPLATFORM"
 
-ARG TARGETPLATFORM
-RUN echo "Building for $TARGETPLATFORM"
-
 USER root
 RUN apk update && apk add \
     pkgconf \

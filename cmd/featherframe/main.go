@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/AlverezYari/featherframe/internal/config"
+	"github.com/AlverezYari/featherframe/internal/headless"
 	"github.com/AlverezYari/featherframe/internal/tui"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -32,10 +33,11 @@ func main() {
 	// check and launch app in the correct mode TUI/headless
 
 	if config.Headless {
-		// start app in headless mode
-		//
 		fmt.Println("Starting app in headless mode!")
-
+		if err := headless.NewHeadless(configPath, config); err != nil {
+			fmt.Printf("Headless mode error: %v", err)
+			os.Exit(1)
+		}
 	} else {
 		// start app in tui mode
 

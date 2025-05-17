@@ -6,6 +6,9 @@ FROM --platform=$BUILDPLATFORM cgr.dev/chainguard/gcc-glibc:latest-dev AS builde
 ARG TARGETPLATFORM
 RUN echo "Building OpenCV for $TARGETPLATFORM"
 
+ARG TARGETPLATFORM
+RUN echo "Building OpenCV for $TARGETPLATFORM"
+
 
 
 # The Chainguard c++ image has a Wolfi-based environment with clang, make, cmake, etc.

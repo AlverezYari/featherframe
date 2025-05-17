@@ -8,6 +8,9 @@ FROM ghcr.io/alverezyari/featherframe:build AS opencv-libs
 # -----------------------------------------------------------------------------
 FROM cgr.dev/chainguard/go:latest-dev AS builder-go
 
+ARG TARGETPLATFORM
+RUN echo "Building for $TARGETPLATFORM"
+
 USER root
 RUN apk update && apk add \
     pkgconf \

@@ -20,12 +20,21 @@ type CameraConfig struct {
 	StreamConfig StreamConfig `json:"stream_config"`
 }
 
+type DetectionConfig struct {
+	ModelPath   string  `json:"model_path"`
+	LabelPath   string  `json:"label_path"`
+	Confidence  float32 `json:"confidence"`
+	InputWidth  int     `json:"input_width"`
+	InputHeight int     `json:"input_height"`
+}
+
 type AppConfig struct {
-	ServerPort   string       `json:"server_port"`
-	ServerIP     string       `json:"server_ip"`
-	CameraConfig CameraConfig `json:"camera"`
-	StoragePath  string       `json:"storage_path"`
-	Headless     bool         `json:"headless"`
+	ServerPort      string          `json:"server_port"`
+	ServerIP        string          `json:"server_ip"`
+	CameraConfig    CameraConfig    `json:"camera"`
+	StoragePath     string          `json:"storage_path"`
+	Headless        bool            `json:"headless"`
+	DetectionConfig DetectionConfig `json:"detection"`
 }
 
 // Default config
@@ -42,6 +51,13 @@ func defaultConfig() *AppConfig {
 		ServerPort:  "8080",
 		StoragePath: "",
 		Headless:    false,
+		DetectionConfig: DetectionConfig{
+			ModelPath:   "models/detector.onnx",
+			LabelPath:   "models/labels.txt",
+			Confidence:  0.5,
+			InputWidth:  640,
+			InputHeight: 640,
+		},
 	}
 }
 

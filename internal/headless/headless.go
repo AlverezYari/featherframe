@@ -52,6 +52,18 @@ func NewHeadless(configPath string, cfg *config.AppConfig) error {
 		AutoStart: true,
 	}
 
+	// Initialize detector
+	det, errDet := detector.New(
+		cfg.DetectionConfig.ModelPath,
+		cfg.DetectionConfig.LabelPath,
+		cfg.DetectionConfig.InputWidth,
+		cfg.DetectionConfig.InputHeight,
+		cfg.DetectionConfig.Confidence,
+	)
+	if errDet != nil {
+		return fmt.Errorf("headless: detector init failed: %w", errDet)
+	}
+
 	// Start our webserver
 	srv := server.New(
 		cfg.ServerPort,
@@ -62,6 +74,7 @@ func NewHeadless(configPath string, cfg *config.AppConfig) error {
 		camMgr,
 		cfg.CameraConfig.DeviceID,
 		cfg,
+		det,
 	)
 	if err := srv.Start(); err != nil {
 		return fmt.Errorf("headless: failed to start the webserver: %w", err)

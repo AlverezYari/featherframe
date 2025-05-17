@@ -1,12 +1,15 @@
 # -----------------------------------------------------------------------------
 # Stage 1: Pull prebuilt OpenCV libs
 # -----------------------------------------------------------------------------
-FROM ghcr.io/alverezyari/featherframe:build AS opencv-libs
+FROM --platform=$BUILDPLATFORM ghcr.io/alverezyari/featherframe:build AS opencv-libs
 
 # -----------------------------------------------------------------------------
 # Stage 2: Build Go app
 # -----------------------------------------------------------------------------
-FROM cgr.dev/chainguard/go:latest-dev AS builder-go
+FROM --platform=$BUILDPLATFORM cgr.dev/chainguard/go:latest-dev AS builder-go
+
+ARG TARGETPLATFORM
+RUN echo "Building for $TARGETPLATFORM"
 
 USER root
 RUN apk update && apk add \
@@ -39,7 +42,7 @@ RUN go build -o /tmp/feather-finder cmd/featherframe/main.go
 # -----------------------------------------------------------------------------
 # Stage 3: Minimal runtime
 # -----------------------------------------------------------------------------
-FROM cgr.dev/chainguard/glibc-dynamic:latest
+FROM --platform=$TARGETPLATFORM cgr.dev/chainguard/glibc-dynamic:latest
 
 # Copy OpenCV from prebuilt image
 COPY --from=opencv-libs /usr/local /usr/local

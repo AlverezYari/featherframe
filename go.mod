@@ -1,6 +1,6 @@
 module github.com/AlverezYari/featherframe
 
-go 1.23.4
+go 1.23
 
 require (
 	github.com/charmbracelet/bubbles v0.20.0

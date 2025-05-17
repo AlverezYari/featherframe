@@ -17,9 +17,6 @@ To enable headless mode set `"headless": true` in the config file.
 ## Container Usage
 
 Use Docker Buildx to produce multi-architecture images. Example:
-```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/alverezyari/featherframe:latest .
-```
 
 Bind mount `/dev/video0` and expose the configured port.
 

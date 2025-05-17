@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/AlverezYari/featherframe/internal/config"
+	"github.com/AlverezYari/featherframe/internal/metrics"
 	"github.com/AlverezYari/featherframe/pkg/camera"
 	"github.com/gorilla/websocket"
 )
@@ -64,6 +65,7 @@ func (s *Server) Start() error {
 	}
 
 	mux := http.NewServeMux()
+	metrics.SetStartTime(time.Now())
 	// Separate handlers for streaming sites
 	mux.HandleFunc("/ws/setupPreview", s.handleWebSocketPreview)
 	mux.HandleFunc("/ws/liveMonitor", s.handleWebSocketLive)
@@ -94,11 +96,15 @@ func (s *Server) Start() error {
 	})
 
 	mux.HandleFunc("/api/screenshot", s.handleScreenshot)
+	// Prometheus metrics endpoints
+	mux.HandleFunc("/metrics", metrics.MetricsHandler)
+	mux.HandleFunc("/api/birds_sceen", metrics.BirdsSeenHandler)
+	mux.HandleFunc("/api/birds_captured", metrics.BirdsCapturedHandler)
 
 	// Build and start the HTTP server
 	s.server = &http.Server{
 		Addr:    ":" + s.port,
-		Handler: mux,
+		Handler: metrics.RequestMiddleware(mux),
 	}
 
 	go func() {

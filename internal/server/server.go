@@ -3,18 +3,23 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"image/color"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/AlverezYari/featherframe/internal/config"
+	"github.com/AlverezYari/featherframe/internal/detector"
 	"github.com/AlverezYari/featherframe/internal/metrics"
 	"github.com/AlverezYari/featherframe/pkg/camera"
 	"github.com/gorilla/websocket"
+	"gocv.io/x/gocv"
 )
 
 type LogEntry struct {
@@ -35,6 +40,7 @@ type Server struct {
 	cameraManager    camera.CameraManager
 	configuredDevice string
 	appConfig        *config.AppConfig
+	detector         *detector.Detector
 }
 
 func New(
@@ -43,6 +49,7 @@ func New(
 	cameraManager camera.CameraManager,
 	deviceID string,
 	appConfig *config.AppConfig,
+	det *detector.Detector,
 ) *Server {
 	return &Server{
 		port:        port,
@@ -55,6 +62,7 @@ func New(
 		cameraManager:    cameraManager,
 		configuredDevice: deviceID, // store the camera device
 		appConfig:        appConfig,
+		detector:         det,
 	}
 }
 
@@ -131,6 +139,30 @@ func (s *Server) handleScreenshot(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to capture screenshot", http.StatusInternalServerError)
 		return
 	}
+
+	// Decode JPEG to Mat for detection
+	mat, err := gocv.IMDecode(frame, gocv.IMReadColor)
+	if err != nil {
+		s.addLog("ERROR", fmt.Sprintf("Decode error: %v", err))
+		http.Error(w, "Failed to process frame", http.StatusInternalServerError)
+		return
+	}
+	defer mat.Close()
+
+	var detections []detector.Detection
+	if s.detector != nil {
+		detections, _ = s.detector.Detect(mat)
+		for _, d := range detections {
+			gocv.Rectangle(&mat, d.Box, color.RGBA{0, 255, 0, 0}, 2)
+		}
+	}
+
+	buf, err := gocv.IMEncode(".jpg", mat)
+	if err == nil {
+		frame = buf.GetBytes()
+		buf.Close()
+	}
+
 	// ALWAYS return the image
 	w.Header().Set("Content-Type", "image/jpeg")
 	_, _ = w.Write(frame)
@@ -138,7 +170,6 @@ func (s *Server) handleScreenshot(w http.ResponseWriter, r *http.Request) {
 	// OPTIONAL: Also save it locally
 	storagePath := s.appConfig.StoragePath //
 	if storagePath != "" {
-		// e.g. /home/pi/birdcaptures or something
 		nowStr := time.Now().Format("20060102_150405")
 		filename := filepath.Join(storagePath, fmt.Sprintf("screenshot_%s.jpg", nowStr))
 
@@ -147,6 +178,12 @@ func (s *Server) handleScreenshot(w http.ResponseWriter, r *http.Request) {
 			s.addLog("ERROR", fmt.Sprintf("Failed to save screenshot to %s: %v", filename, err))
 		} else {
 			s.addLog("INFO", fmt.Sprintf("Screenshot saved to %s", filename))
+			meta := struct {
+				Timestamp  time.Time            `json:"timestamp"`
+				Detections []detector.Detection `json:"detections"`
+			}{time.Now(), detections}
+			metaBytes, _ := json.MarshalIndent(meta, "", "  ")
+			_ = os.WriteFile(strings.TrimSuffix(filename, ".jpg")+".json", metaBytes, 0644)
 		}
 	}
 }

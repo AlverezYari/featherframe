@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/AlverezYari/featherframe/internal/config"
+	"github.com/AlverezYari/featherframe/internal/detector"
 	"github.com/AlverezYari/featherframe/internal/server"
 	"github.com/AlverezYari/featherframe/pkg/camera"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -121,6 +122,8 @@ type Model struct {
 	logBuffer     []string      // Temporary buffer for new log lines
 	lastLogUpdate time.Time     // When logs were last flushed
 	logThrottle   time.Duration // Wait time between re-renders
+
+	detector *detector.Detector
 }
 
 func newCameraManager(logCallback func(level, message string)) camera.CameraManager {
@@ -194,8 +197,21 @@ func New(configPath string, cfg *config.AppConfig) *Model {
 	vp.SetContent("")
 	m.logViewport = vp
 
+	// Initialize detector using configuration
+	det, err := detector.New(
+		cfg.DetectionConfig.ModelPath,
+		cfg.DetectionConfig.LabelPath,
+		cfg.DetectionConfig.InputWidth,
+		cfg.DetectionConfig.InputHeight,
+		cfg.DetectionConfig.Confidence,
+	)
+	if err != nil {
+		m.flushLogImmediately("ERROR", fmt.Sprintf("Detector init failed: %v", err))
+	}
+	m.detector = det
+
 	// Start the server
-	m.server = server.New(cfg.ServerPort, m.logCallback, m.cameraManager, cfg.CameraConfig.DeviceID, cfg)
+	m.server = server.New(cfg.ServerPort, m.logCallback, m.cameraManager, cfg.CameraConfig.DeviceID, cfg, det)
 	if err := m.server.Start(); err != nil {
 		m.flushLogImmediately("ERROR", fmt.Sprintf("Error starting server: %v", err))
 	}

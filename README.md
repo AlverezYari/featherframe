@@ -29,3 +29,19 @@ CMD ["./featherframe"]
 ```
 
 Bind mount `/dev/video0` and expose the configured port.
+
+## Metrics
+
+A Prometheus-compatible endpoint is available at `/metrics`. Two counters are
+provided:
+
+- `birds_seen` – counts bird detections
+- `birds_captured` – counts saved captures
+
+The values can be incremented via the `/api/birds_sceen` and
+`/api/birds_captured` endpoints. These return `204 No Content` when called.
+
+Additional generic metrics are exposed:
+
+- `http_requests_total` – total HTTP requests served
+- `uptime_seconds` – seconds since the server started

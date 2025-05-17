@@ -16,16 +16,13 @@ To enable headless mode set `"headless": true` in the config file.
 
 ## Container Usage
 
-A Dockerfile is not provided, but the application should work with the official
-`gocv` images for ARM64. Install OpenCV and gocv in the container, copy the
-source, then build:
+A Dockerfile is provided so the application can be built for multiple
+architectures. To create a container for amd64 and arm64 (suitable for
+Raspberry Pi 4 and similar devices) run:
 
-```
-FROM gocv/gocv:latest
-WORKDIR /app
-COPY . .
-RUN go build -o featherframe cmd/featherframe/main.go
-CMD ["./featherframe"]
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t ghcr.io/alverezyari/featherframe:latest .
 ```
 
 Bind mount `/dev/video0` and expose the configured port.

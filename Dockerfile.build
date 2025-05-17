@@ -1,7 +1,10 @@
 # ============================================================================
 # Stage 1: Build OpenCV
 # ============================================================================
-FROM cgr.dev/chainguard/gcc-glibc:latest-dev AS builder-opencv
+FROM --platform=$BUILDPLATFORM cgr.dev/chainguard/gcc-glibc:latest-dev AS builder-opencv
+
+ARG TARGETPLATFORM
+RUN echo "Building OpenCV for $TARGETPLATFORM"
 
 ARG TARGETPLATFORM
 RUN echo "Building OpenCV for $TARGETPLATFORM"

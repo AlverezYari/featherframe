@@ -42,7 +42,7 @@ RUN go build -o /tmp/feather-finder cmd/featherframe/main.go
 # -----------------------------------------------------------------------------
 # Stage 3: Minimal runtime
 # -----------------------------------------------------------------------------
-FROM --platform=$TARGETPLATFORM cgr.dev/chainguard/glibc-dynamic:latest
+FROM cgr.dev/chainguard/glibc-dynamic:latest
 
 # Copy OpenCV from prebuilt image
 COPY --from=opencv-libs /usr/local /usr/local

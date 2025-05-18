@@ -28,6 +28,14 @@ type DetectionConfig struct {
 	InputHeight int     `json:"input_height"`
 }
 
+type AlertConfig struct {
+	BirdLabel  string `json:"bird_label"`
+	ToNumber   string `json:"to_number"`
+	FromNumber string `json:"from_number"`
+	AccountSID string `json:"account_sid"`
+	AuthToken  string `json:"auth_token"`
+}
+
 type AppConfig struct {
 	ServerPort      string          `json:"server_port"`
 	ServerIP        string          `json:"server_ip"`
@@ -35,6 +43,7 @@ type AppConfig struct {
 	StoragePath     string          `json:"storage_path"`
 	Headless        bool            `json:"headless"`
 	DetectionConfig DetectionConfig `json:"detection"`
+	AlertConfig     AlertConfig     `json:"alert"`
 }
 
 // Default config
@@ -57,6 +66,13 @@ func defaultConfig() *AppConfig {
 			Confidence:  0.5,
 			InputWidth:  640,
 			InputHeight: 640,
+		},
+		AlertConfig: AlertConfig{
+			BirdLabel:  "bird",
+			ToNumber:   "",
+			FromNumber: "",
+			AccountSID: "",
+			AuthToken:  "",
 		},
 	}
 }

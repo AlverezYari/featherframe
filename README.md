@@ -35,3 +35,17 @@ Additional generic metrics are exposed:
 
 - `http_requests_total` – total HTTP requests served
 - `uptime_seconds` – seconds since the server started
+
+## Local Bird Data
+
+Set your location in `config.json` using the `location` section:
+
+```json
+"location": {
+  "latitude": 0,
+  "longitude": 0
+}
+```
+
+The endpoint `/api/local_birds` fetches recent bird recordings near your
+configured GPS coordinates using the public xeno-canto API.

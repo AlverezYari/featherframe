@@ -28,6 +28,12 @@ type DetectionConfig struct {
 	InputHeight int     `json:"input_height"`
 }
 
+// Location stores the latitude and longitude used for pulling regional bird data.
+type Location struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
 type AppConfig struct {
 	ServerPort      string          `json:"server_port"`
 	ServerIP        string          `json:"server_ip"`
@@ -35,6 +41,7 @@ type AppConfig struct {
 	StoragePath     string          `json:"storage_path"`
 	Headless        bool            `json:"headless"`
 	DetectionConfig DetectionConfig `json:"detection"`
+	Location        Location        `json:"location"`
 }
 
 // Default config
@@ -57,6 +64,10 @@ func defaultConfig() *AppConfig {
 			Confidence:  0.5,
 			InputWidth:  640,
 			InputHeight: 640,
+		},
+		Location: Location{
+			Latitude:  0,
+			Longitude: 0,
 		},
 	}
 }

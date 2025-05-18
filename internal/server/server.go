@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AlverezYari/featherframe/internal/birddata"
 	"github.com/AlverezYari/featherframe/internal/config"
 	"github.com/AlverezYari/featherframe/internal/detector"
 	"github.com/AlverezYari/featherframe/internal/metrics"
@@ -108,6 +109,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/metrics", metrics.MetricsHandler)
 	mux.HandleFunc("/api/birds_sceen", metrics.BirdsSeenHandler)
 	mux.HandleFunc("/api/birds_captured", metrics.BirdsCapturedHandler)
+	mux.HandleFunc("/api/local_birds", s.handleLocalBirds)
 
 	// Build and start the HTTP server
 	s.server = &http.Server{
@@ -186,6 +188,20 @@ func (s *Server) handleScreenshot(w http.ResponseWriter, r *http.Request) {
 			_ = os.WriteFile(strings.TrimSuffix(filename, ".jpg")+".json", metaBytes, 0644)
 		}
 	}
+}
+
+// handleLocalBirds returns recent bird recordings near the configured location.
+func (s *Server) handleLocalBirds(w http.ResponseWriter, r *http.Request) {
+	lat := s.appConfig.Location.Latitude
+	lon := s.appConfig.Location.Longitude
+	data, err := birddata.Fetch(lat, lon)
+	if err != nil {
+		s.addLog("ERROR", fmt.Sprintf("Bird data fetch error: %v", err))
+		http.Error(w, "failed to fetch bird data", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 func (s *Server) Stop() error {

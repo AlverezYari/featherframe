@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AlverezYari/featherframe/internal/alerts"
 	"github.com/AlverezYari/featherframe/internal/config"
 	"github.com/AlverezYari/featherframe/internal/detector"
 	"github.com/AlverezYari/featherframe/internal/metrics"
@@ -154,6 +155,12 @@ func (s *Server) handleScreenshot(w http.ResponseWriter, r *http.Request) {
 		detections, _ = s.detector.Detect(mat)
 		for _, d := range detections {
 			gocv.Rectangle(&mat, d.Box, color.RGBA{0, 255, 0, 0}, 2)
+			if strings.EqualFold(d.Label, s.appConfig.AlertConfig.BirdLabel) {
+				if err := alerts.SendBirdAlert(d.Label, &s.appConfig.AlertConfig); err != nil {
+					s.addLog("ERROR", fmt.Sprintf("alert error: %v", err))
+				}
+				metrics.IncrementBirdsSeen()
+			}
 		}
 	}
 
